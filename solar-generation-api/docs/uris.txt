@@ -1,0 +1,21 @@
+Web API URIs
+
+
+/provinces
+/provinces/{id}
+/provinces/{id}/districts
+
+/districts
+/districts/{id}
+/districts/{id}/substations
+
+/substations
+/substations/{id}
+/substations/{id}/installations
+
+/installations
+/installations/{id}
+/installations/{id}/readings
+/installations/{id}/last-known-reading
+
+/districts/{id}/generation-summary
