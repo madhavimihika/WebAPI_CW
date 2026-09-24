@@ -3,6 +3,7 @@ const provincesRouter = require("./routes/provinces");
 const districtsRouter = require("./routes/districts");
 const substationsRouter = require("./routes/substations");
 const installationsRouter = require("./routes/installations");
+const readingsRouter = require("./routes/readings");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use("/provinces", provincesRouter);
 app.use("/districts", districtsRouter);
 app.use("/substations", substationsRouter);
 app.use("/installations", installationsRouter);
+app.use("/installations/:id/readings", readingsRouter);
 
 // Central error handler
 app.use((err, req, res, next) => {
