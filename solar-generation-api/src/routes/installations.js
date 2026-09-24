@@ -6,6 +6,12 @@
  *   GET /installations        -> { data: [...], total: N } (ordered by site_name)
  *   GET /installations/:id    -> one installation (plus substation/district/
  *                               province names), or 404 { error: "Installation not found" }
+ *   GET /installations/:id/last-known-reading
+ *                             -> the single most recent reading for the site
+ *                               (a derived/operational "what is it generating
+ *                               right now?" view), or 404 with either
+ *                               "Installation not found" (no such site) or
+ *                               "No readings for this installation".
  *
  * Optional filters on the collection (combinable):
  *   ?substation_id=X  direct
@@ -67,6 +73,53 @@ router.get('/', async (req, res, next) => {
 
     const { rows } = await pool.query(sql, params);
     res.json({ data: rows, total: rows.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /installations/:id/last-known-reading
+//
+// Derived/operational resource: the most recent reading for the installation,
+// answering "what is this site generating right now?". Must be declared before
+// the '/:id' route below, otherwise Express would match '/:id' first and treat
+// "last-known-reading" as an installation id.
+router.get('/:id/last-known-reading', async (req, res, next) => {
+  try {
+    // 1. Does the installation exist? Distinguishes a bad id (404 Installation
+    //    not found) from a real site that simply has no readings yet.
+    const installation = await pool.query(
+      'SELECT id, site_name FROM installations WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (installation.rows.length === 0) {
+      return res.status(404).json({ error: 'Installation not found' });
+    }
+
+    // 2. Latest reading for this site. ORDER BY timestamp DESC LIMIT 1 uses the
+    //    (installation_id, timestamp DESC) index. ::float turns the NUMERIC
+    //    columns into JSON numbers rather than strings.
+    const { rows } = await pool.query(
+      `SELECT
+         installation_id,
+         timestamp,
+         power_kw::float   AS power_kw,
+         energy_kwh::float AS energy_kwh,
+         voltage::float    AS voltage
+       FROM readings
+       WHERE installation_id = $1
+       ORDER BY timestamp DESC
+       LIMIT 1`,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No readings for this installation' });
+    }
+
+    // site_name comes from the installation, not the reading row.
+    res.json({ ...rows[0], site_name: installation.rows[0].site_name });
   } catch (err) {
     next(err);
   }
