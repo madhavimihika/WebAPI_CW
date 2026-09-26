@@ -79,6 +79,7 @@ const SIMPLE_TABLES = [
   { table: 'districts', columns: ['id', 'name', 'province_id'] },
   { table: 'substations', columns: ['id', 'name', 'district_id'] },
   { table: 'installations', columns: ['id', 'site_name', 'meter_id', 'substation_id'] },
+  { table: 'users', columns: ['id', 'username', 'password_hash', 'role', 'jurisdiction_id'] },
 ];
 
 const READING_COLUMNS = [

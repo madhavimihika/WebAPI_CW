@@ -17,6 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // ---------------------------------------------------------------------------
 // Small deterministic PRNG (mulberry32) so re-running produces the same seed
@@ -114,6 +115,10 @@ const SUBSTATIONS = [
   ['Ratnapura Grid Substation', 'Ratnapura'],
 ];
 
+// Demo user accounts. The plaintext password is only used here to derive the
+// stored hash - the password itself is never written to seed.json.
+const DEMO_PASSWORD = 'password123';
+
 const INSTALLATIONS_PER_SUBSTATION = 10; // 20 * 10 = 200 installations
 const DAYS_OF_READINGS = 7;
 const INTERVAL_MINUTES = 15;
@@ -179,6 +184,59 @@ for (const substation of substations) {
     });
     installationId += 1;
   }
+}
+
+// ---------------------------------------------------------------------------
+// 4b. Users
+//
+// Roles:
+//   admin        - full access, no jurisdiction
+//   national     - read access to every province
+//   provincial   - scoped to a single province
+//   district     - scoped to a single district
+//
+// jurisdiction_id points at a province id or a district id depending on the
+// role; it is NULL for admin and national users. There is no FK because the
+// column is polymorphic (it can reference either table).
+//
+// Passwords are stored as scrypt hashes in the form
+//   scrypt$<salt-hex>$<derived-key-hex>
+// which is verifiable with crypto.scrypt + crypto.timingSafeEqual.
+// ---------------------------------------------------------------------------
+const SCRYPT_KEYLEN = 64;
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const derived = crypto.scryptSync(password, salt, SCRYPT_KEYLEN).toString('hex');
+  return `scrypt$${salt}$${derived}`;
+}
+
+const users = [
+  { id: 1, username: 'admin', role: 'admin', jurisdiction_id: null },
+  { id: 2, username: 'national_user', role: 'national', jurisdiction_id: null },
+];
+
+// One provincial user per province (jurisdiction_id = province id).
+for (const province of provinces) {
+  users.push({
+    id: users.length + 1,
+    username: `province_${province.id}_user`,
+    role: 'provincial',
+    jurisdiction_id: province.id,
+  });
+}
+
+// One district user per district (jurisdiction_id = district id).
+for (const district of districts) {
+  users.push({
+    id: users.length + 1,
+    username: `district_${district.id}_user`,
+    role: 'district',
+    jurisdiction_id: district.id,
+  });
+}
+
+for (const user of users) {
+  user.password_hash = hashPassword(DEMO_PASSWORD);
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +314,7 @@ for (const installation of installations) {
 // ---------------------------------------------------------------------------
 // Consistency check: every foreign key must resolve to a real parent id.
 // ---------------------------------------------------------------------------
-function assertNoOrphans({ provinces, districts, substations, installations, readings }) {
+function assertNoOrphans({ provinces, districts, substations, installations, readings, users }) {
   const provinceIds = new Set(provinces.map((p) => p.id));
   const districtIds = new Set(districts.map((d) => d.id));
   const substationIds = new Set(substations.map((s) => s.id));
@@ -274,9 +332,20 @@ function assertNoOrphans({ provinces, districts, substations, installations, rea
   for (const r of readings) {
     if (!installationIds.has(r.installation_id)) throw new Error(`Orphan reading ${r.id} -> installation ${r.installation_id}`);
   }
+  for (const u of users) {
+    if (u.role === 'provincial' && !provinceIds.has(u.jurisdiction_id)) {
+      throw new Error(`Orphan user ${u.id} -> province ${u.jurisdiction_id}`);
+    }
+    if (u.role === 'district' && !districtIds.has(u.jurisdiction_id)) {
+      throw new Error(`Orphan user ${u.id} -> district ${u.jurisdiction_id}`);
+    }
+    if (u.role !== 'provincial' && u.role !== 'district' && u.jurisdiction_id !== null) {
+      throw new Error(`User ${u.id} (role ${u.role}) must not have a jurisdiction_id`);
+    }
+  }
 }
 
-const seed = { provinces, districts, substations, installations, readings };
+const seed = { provinces, districts, substations, installations, users, readings };
 assertNoOrphans(seed);
 
 // ---------------------------------------------------------------------------
@@ -290,5 +359,6 @@ console.log(`  provinces:     ${provinces.length}`);
 console.log(`  districts:     ${districts.length}`);
 console.log(`  substations:   ${substations.length}`);
 console.log(`  installations: ${installations.length}`);
+console.log(`  users:         ${users.length} (1 admin, 1 national, ${provinces.length} provincial, ${districts.length} district)`);
 console.log(`  readings:      ${readings.length} (${DAYS_OF_READINGS} days x ${READINGS_PER_DAY} per day x ${installations.length} installations)`);
 console.log('  all foreign keys validated - no orphan records');
