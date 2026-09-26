@@ -1,0 +1,901 @@
+openapi: 3.0.3
+
+info:
+  title: SLSEA Solar Generation API
+  version: 1.0.0
+  description: |
+    National solar generation data API for the Sri Lanka Sustainable Energy
+    Authority (SLSEA).
+
+    The API exposes the full geographic hierarchy of the national solar
+    generation network - **provinces** -> **districts** -> **substations** ->
+    **installations** - together with the time-series **readings** reported by
+    each installation's metering device.
+
+    Typical use cases:
+
+    * Browse the geography of the network and drill down from a province to the
+      individual solar installations inside it.
+    * Filter installations by province, district or substation.
+    * Read the most recent ("last known") reading of an installation to answer
+      "what is this site generating right now?".
+    * Page and filter the historical readings of an installation, and record new
+      readings pushed by metering devices.
+
+    Collection endpoints return a `data` array and, where relevant, a `total`
+    count or a `pagination` block.
+  contact:
+    name: SLSEA Web API Support
+    email: support@slsea.example
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+
+servers:
+  - url: https://webapi-cw.onrender.com
+    description: Primary production server (Render)
+  - url: http://localhost:3000
+    description: Secondary local development server
+
+tags:
+  - name: Provinces
+    description: Top level of the network geography - the nine provinces.
+  - name: Districts
+    description: Second level of the geography - districts within a province.
+  - name: Substations
+    description: Third level of the geography - substations within a district.
+  - name: Installations
+    description: Individual solar installations (sites) and their metering data.
+  - name: Readings
+    description: Time-series power/energy/voltage readings reported by installations.
+
+paths:
+  /:
+    get:
+      tags:
+        - Installations
+      summary: Service health check
+      description: Returns a small status object confirming the API is running and which session it belongs to.
+      operationId: getServiceStatus
+      responses:
+        '200':
+          description: Service is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - session
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  session:
+                    type: string
+                    example: NB6007CEM S2
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /provinces:
+    get:
+      tags:
+        - Provinces
+      summary: List all provinces
+      description: Returns every province in the national network, ordered by name.
+      operationId: listProvinces
+      responses:
+        '200':
+          description: A list of provinces.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CollectionWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Province'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /provinces/{id}:
+    get:
+      tags:
+        - Provinces
+      summary: Get a single province by id
+      description: Returns one province, or 404 if no province has that id.
+      operationId: getProvinceById
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: The requested province.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Province'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /provinces/{id}/districts:
+    get:
+      tags:
+        - Provinces
+        - Districts
+      summary: List the districts inside a province
+      description: |
+        Returns the districts that belong to the given province, ordered by name.
+        Returns 404 when the province does not exist, and `{ data: [], total: 0 }`
+        when the province exists but contains no districts.
+      operationId: listDistrictsByProvince
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: A list of districts in the province.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CollectionWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/District'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /districts:
+    get:
+      tags:
+        - Districts
+      summary: List all districts
+      description: Returns every district in the national network, ordered by name.
+      operationId: listDistricts
+      responses:
+        '200':
+          description: A list of districts.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CollectionWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/District'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /districts/{id}:
+    get:
+      tags:
+        - Districts
+      summary: Get a single district by id
+      description: Returns one district, or 404 if no district has that id.
+      operationId: getDistrictById
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: The requested district.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/District'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /districts/{id}/substations:
+    get:
+      tags:
+        - Districts
+        - Substations
+      summary: List the substations inside a district
+      description: |
+        Returns the substations that belong to the given district, ordered by name.
+        Returns 404 when the district does not exist, and `{ data: [], total: 0 }`
+        when the district exists but contains no substations.
+      operationId: listSubstationsByDistrict
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: A list of substations in the district.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CollectionWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Substation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /substations:
+    get:
+      tags:
+        - Substations
+      summary: List all substations
+      description: Returns every substation in the national network, ordered by name.
+      operationId: listSubstations
+      responses:
+        '200':
+          description: A list of substations.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CollectionWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Substation'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /substations/{id}:
+    get:
+      tags:
+        - Substations
+      summary: Get a single substation by id
+      description: Returns one substation, or 404 if no substation has that id.
+      operationId: getSubstationById
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: The requested substation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Substation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /substations/{id}/installations:
+    get:
+      tags:
+        - Substations
+        - Installations
+      summary: List the installations at a substation
+      description: |
+        Returns the solar installations connected to the given substation, ordered
+        by site name. Returns 404 when the substation does not exist, and
+        `{ data: [], total: 0 }` when it exists but has no installations.
+      operationId: listInstallationsBySubstation
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: A list of installations at the substation.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CollectionWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Installation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /installations:
+    get:
+      tags:
+        - Installations
+      summary: List installations, optionally filtered by geography
+      description: |
+        Returns solar installations ordered by site name. The three filters are
+        combinable and are applied with AND:
+
+        * `province_id` - installations in a province (via substations -> districts)
+        * `district_id` - installations in a district (via substations)
+        * `substation_id` - installations directly connected to a substation
+      operationId: listInstallations
+      parameters:
+        - name: province_id
+          in: query
+          required: false
+          description: Filter to installations located in this province id.
+          schema:
+            type: string
+            example: prov-1
+        - name: district_id
+          in: query
+          required: false
+          description: Filter to installations located in this district id.
+          schema:
+            type: string
+            example: dist-1
+        - name: substation_id
+          in: query
+          required: false
+          description: Filter to installations connected to this substation id.
+          schema:
+            type: string
+            example: sub-1
+      responses:
+        '200':
+          description: A list of installations.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CollectionWrapper'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Installation'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /installations/{id}:
+    get:
+      tags:
+        - Installations
+      summary: Get a single installation by id
+      description: |
+        Returns one installation together with the names/ids of its substation,
+        district and province. Returns 404 if no installation has that id.
+      operationId: getInstallationById
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: The requested installation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Installation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /installations/{id}/last-known-reading:
+    get:
+      tags:
+        - Installations
+        - Readings
+      summary: Get the most recent reading of an installation
+      description: |
+        Derived/operational resource answering "what is this site generating right
+        now?". Returns the single most recent reading for the installation plus the
+        installation's `site_name`.
+
+        Returns 404 with `Installation not found` when the installation does not
+        exist, or 404 with `No readings for this installation` when the site exists
+        but has never reported a reading.
+      operationId: getLastKnownReading
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: The latest reading for the installation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reading'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /installations/{id}/readings:
+    get:
+      tags:
+        - Readings
+      summary: List the readings of an installation (paginated)
+      description: |
+        Returns a page of readings for the installation, newest first by default,
+        together with a `pagination` block containing `total`, `page`, `limit`,
+        `pages`, `next` and `previous` links.
+
+        Returns 404 when the installation does not exist.
+      operationId: listInstallationReadings
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - name: page
+          in: query
+          required: false
+          description: Page number to return. Values below 1 fall back to the default.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of readings per page. Values are capped at 200.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+            default: 50
+            example: 50
+        - name: from
+          in: query
+          required: false
+          description: Only return readings with a timestamp greater than or equal to this instant (ISO 8601).
+          schema:
+            type: string
+            format: date-time
+            example: '2026-01-01T00:00:00Z'
+        - name: to
+          in: query
+          required: false
+          description: Only return readings with a timestamp less than or equal to this instant (ISO 8601).
+          schema:
+            type: string
+            format: date-time
+            example: '2026-01-31T23:59:59Z'
+        - name: min_power
+          in: query
+          required: false
+          description: Only return readings whose power_kw is greater than or equal to this value.
+          schema:
+            type: number
+            format: float
+            minimum: 0
+            default: 0
+            example: 1.5
+        - name: sort
+          in: query
+          required: false
+          description: Sort order of the readings by timestamp.
+          schema:
+            type: string
+            enum:
+              - timestamp:asc
+              - timestamp:desc
+            default: timestamp:desc
+            example: timestamp:desc
+      responses:
+        '200':
+          description: A page of readings plus pagination metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reading'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags:
+        - Readings
+      summary: Record a new reading for an installation
+      description: |
+        Records one reading pushed by an installation's metering device.
+
+        Validation rules:
+
+        * `timestamp`, `power_kw`, `energy_kwh` and `voltage` are all required.
+        * `timestamp` must be a string that parses to a valid date.
+        * `power_kw`, `energy_kwh` and `voltage` must be JSON numbers (numeric
+          strings are rejected).
+
+        Only one reading may exist per (installation, timestamp); posting a
+        duplicate returns 409. On success the created reading is returned with a
+        `Location` header pointing at the new resource.
+      operationId: createInstallationReading
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        description: The reading reported by the metering device.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadingInput'
+      responses:
+        '201':
+          description: Reading created.
+          headers:
+            Location:
+              description: URL of the newly created reading.
+              schema:
+                type: string
+                format: uri
+                example: /installations/inst-1/readings/read-9f1c2b3a-4d5e-6f70-8a9b-0c1d2e3f4a5b
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reading'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Placeholder for JWT bearer authentication. Authentication is not yet
+        enforced by the API - this scheme is declared so that the contract is
+        ready when it is implemented.
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      description: Unique identifier of the resource being addressed.
+      schema:
+        type: string
+        example: prov-1
+
+  responses:
+    NotFound:
+      description: The requested resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Resource not found
+    ValidationError:
+      description: The request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Validation failed
+            code: INVALID_BODY
+            details:
+              - field: power_kw
+                message: power_kw is required
+    ConflictError:
+      description: A reading already exists for this installation and timestamp.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Reading already exists for this timestamp
+            code: DUPLICATE_READING
+    ServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+
+  schemas:
+
+    Province:
+      type: object
+      description: A province - the top level of the network geography.
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the province.
+          example: prov-1
+        name:
+          type: string
+          description: Human readable province name.
+          example: Western
+
+    District:
+      type: object
+      description: A district within a province.
+      required:
+        - id
+        - name
+        - province_id
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the district.
+          example: dist-1
+        name:
+          type: string
+          description: Human readable district name.
+          example: Colombo
+        province_id:
+          type: string
+          description: Id of the province this district belongs to.
+          example: prov-1
+
+    Substation:
+      type: object
+      description: A substation within a district.
+      required:
+        - id
+        - name
+        - district_id
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the substation.
+          example: sub-1
+        name:
+          type: string
+          description: Human readable substation name.
+          example: Colombo North Grid
+        district_id:
+          type: string
+          description: Id of the district this substation belongs to.
+          example: dist-1
+
+    Installation:
+      type: object
+      description: A solar installation (site) connected to a substation.
+      required:
+        - id
+        - site_name
+        - meter_id
+        - substation_id
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the installation.
+          example: inst-1
+        site_name:
+          type: string
+          description: Name of the solar site.
+          example: Kelaniya Rooftop Solar
+        meter_id:
+          type: string
+          description: Identifier of the metering device reporting for this site.
+          example: MTR-000123
+        substation_id:
+          type: string
+          description: Id of the substation the installation is connected to.
+          example: sub-1
+        substation_name:
+          type: string
+          description: Name of the substation (returned by the single-installation endpoint).
+          example: Colombo North Grid
+        district_id:
+          type: string
+          description: Id of the district (returned by the single-installation endpoint).
+          example: dist-1
+        district_name:
+          type: string
+          description: Name of the district (returned by the single-installation endpoint).
+          example: Colombo
+        province_id:
+          type: string
+          description: Id of the province (returned by the single-installation endpoint).
+          example: prov-1
+        province_name:
+          type: string
+          description: Name of the province (returned by the single-installation endpoint).
+          example: Western
+
+    Reading:
+      type: object
+      description: A single power/energy/voltage reading reported by an installation.
+      required:
+        - id
+        - installation_id
+        - timestamp
+        - power_kw
+        - energy_kwh
+        - voltage
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the reading.
+          example: read-9f1c2b3a-4d5e-6f70-8a9b-0c1d2e3f4a5b
+        installation_id:
+          type: string
+          description: Id of the installation that produced the reading.
+          example: inst-1
+        site_name:
+          type: string
+          description: Name of the installation (only returned by the last-known-reading endpoint).
+          example: Kelaniya Rooftop Solar
+        timestamp:
+          type: string
+          format: date-time
+          description: Instant the reading was taken.
+          example: '2026-01-15T10:30:00Z'
+        power_kw:
+          type: number
+          format: float
+          description: Instantaneous power output in kilowatts.
+          example: 4.25
+        energy_kwh:
+          type: number
+          format: float
+          description: Cumulative energy generated in kilowatt hours.
+          example: 1820.75
+        voltage:
+          type: number
+          format: float
+          description: Voltage at the meter in volts.
+          example: 230.4
+
+    ReadingInput:
+      type: object
+      description: Payload accepted by POST /installations/{id}/readings.
+      required:
+        - timestamp
+        - power_kw
+        - energy_kwh
+        - voltage
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Instant the reading was taken (ISO 8601 date-time string).
+          example: '2026-01-15T10:30:00Z'
+        power_kw:
+          type: number
+          format: float
+          description: Instantaneous power output in kilowatts.
+          example: 4.25
+        energy_kwh:
+          type: number
+          format: float
+          description: Cumulative energy generated in kilowatt hours.
+          example: 1820.75
+        voltage:
+          type: number
+          format: float
+          description: Voltage at the meter in volts.
+          example: 230.4
+
+    CollectionWrapper:
+      type: object
+      description: Standard envelope used by all collection endpoints.
+      required:
+        - data
+        - total
+      properties:
+        data:
+          type: array
+          description: The resources in this collection.
+          items:
+            type: object
+        total:
+          type: integer
+          format: int32
+          description: Number of items in the collection.
+          example: 9
+
+    Pagination:
+      type: object
+      description: Pagination metadata returned alongside a page of readings.
+      required:
+        - total
+        - page
+        - limit
+        - pages
+      properties:
+        total:
+          type: integer
+          format: int32
+          description: Total number of readings matching the query.
+          example: 1250
+        page:
+          type: integer
+          format: int32
+          description: Current page number.
+          example: 1
+        limit:
+          type: integer
+          format: int32
+          description: Number of readings per page.
+          example: 50
+        pages:
+          type: integer
+          format: int32
+          description: Total number of pages available.
+          example: 25
+        next:
+          type: string
+          nullable: true
+          description: Relative link to the next page, or null when on the last page.
+          example: /installations/inst-1/readings?page=2&limit=50
+        previous:
+          type: string
+          nullable: true
+          description: Relative link to the previous page, or null when on the first page.
+          example: null
+
+    ErrorResponse:
+      type: object
+      description: Standard error envelope.
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human readable error message.
+          example: Installation not found
+        code:
+          type: string
+          description: Machine readable error code, present on validation and conflict errors.
+          example: INVALID_BODY
+        details:
+          type: array
+          description: Field level validation failures, present on 400 responses.
+          items:
+            type: object
+            required:
+              - field
+              - message
+            properties:
+              field:
+                type: string
+                example: power_kw
+              message:
+                type: string
+                example: power_kw is required
+
+security:
+  - bearerAuth: []
