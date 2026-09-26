@@ -3,7 +3,8 @@
  * ---------------------------------------------------------------------------
  * READINGS endpoints, mounted under an installation.
  *
- *   GET /installations/:id/readings  -> paginated readings, newest first
+ *   GET  /installations/:id/readings -> paginated readings, newest first
+ *   POST /installations/:id/readings -> record one new reading (metering device)
  *
  * Mounted with `app.use('/installations/:id/readings', readingsRouter)` and
  * `express.Router({ mergeParams: true })` so `:id` from the mount path is
@@ -22,6 +23,7 @@
  * handled by the central error handler in app.js.
  */
 
+const crypto = require('crypto');
 const express = require('express');
 const pool = require('../db');
 
@@ -49,6 +51,73 @@ function parsePositiveInt(value, fallback, max) {
  */
 function buildPageLink(installationId, page, limit, basePath) {
   return `${basePath}?page=${page}&limit=${limit}`;
+}
+
+/**
+ * Validates a POST /installations/:id/readings body.
+ *
+ * Required fields:
+ *   timestamp   - non-empty string that parses to a valid date
+ *   power_kw    - number
+ *   energy_kwh  - number
+ *   voltage     - number
+ *
+ * Numbers must be JSON numbers (not numeric strings): the device is expected to
+ * post real JSON, and accepting "4.2" would silently hide a mis-serialised
+ * payload. Returns { valid, errors, value } where `value` holds the normalised
+ * fields (timestamp as a Date) and is only meaningful when valid is true.
+ */
+function validateReadingBody(body) {
+  const errors = [];
+
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      valid: false,
+      errors: [{ field: 'body', message: 'Request body must be a JSON object' }],
+    };
+  }
+
+  // --- timestamp -----------------------------------------------------------
+  let timestamp;
+  if (body.timestamp === undefined || body.timestamp === null || body.timestamp === '') {
+    errors.push({ field: 'timestamp', message: 'timestamp is required' });
+  } else if (typeof body.timestamp !== 'string' && typeof body.timestamp !== 'number') {
+    errors.push({ field: 'timestamp', message: 'timestamp must be a date string' });
+  } else {
+    const parsed = new Date(body.timestamp);
+    if (Number.isNaN(parsed.getTime())) {
+      errors.push({ field: 'timestamp', message: 'timestamp must be a valid date' });
+    } else {
+      timestamp = parsed;
+    }
+  }
+
+  // --- numeric fields ------------------------------------------------------
+  const numericFields = ['power_kw', 'energy_kwh', 'voltage'];
+  const numbers = {};
+
+  for (const field of numericFields) {
+    const value = body[field];
+    if (value === undefined || value === null) {
+      errors.push({ field, message: `${field} is required` });
+    } else if (typeof value !== 'number' || !Number.isFinite(value)) {
+      errors.push({ field, message: `${field} must be a number` });
+    } else {
+      numbers[field] = value;
+    }
+  }
+
+  if (errors.length > 0) return { valid: false, errors };
+
+  return {
+    valid: true,
+    value: {
+      timestamp,
+      power_kw: numbers.power_kw,
+      energy_kwh: numbers.energy_kwh,
+      voltage: numbers.voltage,
+    },
+  };
 }
 
 // GET /installations/:id/readings
@@ -114,6 +183,76 @@ router.get('/', async (req, res, next) => {
         previous,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /installations/:id/readings
+router.post('/', async (req, res, next) => {
+  try {
+    const installationId = req.params.id;
+
+    // 1. The installation must exist - the FK would also reject a bad id, but
+    //    this returns a clear 404 instead of a database error.
+    const installation = await pool.query(
+      'SELECT id FROM installations WHERE id = $1',
+      [installationId]
+    );
+
+    if (installation.rows.length === 0) {
+      return res.status(404).json({ error: 'Installation not found' });
+    }
+
+    // 2. Validate the payload before touching the database.
+    const validation = validateReadingBody(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        code: 'INVALID_BODY',
+        details: validation.errors,
+      });
+    }
+
+    const { timestamp, power_kw, energy_kwh, voltage } = validation.value;
+
+    // 3. Idempotency: one reading per (installation_id, timestamp). Checked up
+    //    front so a duplicate returns 409 rather than a primary-key error.
+    const duplicate = await pool.query(
+      'SELECT id FROM readings WHERE installation_id = $1 AND timestamp = $2',
+      [installationId, timestamp]
+    );
+
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Reading already exists for this timestamp',
+        code: 'DUPLICATE_READING',
+      });
+    }
+
+    // 4. Generate the id and insert. RETURNING with `::float` casts gives the
+    //    NUMERIC columns back as JSON numbers, matching the GET response shape.
+    const id = `read-${crypto.randomUUID()}`;
+
+    const inserted = await pool.query(
+      `INSERT INTO readings
+         (id, installation_id, timestamp, power_kw, energy_kwh, voltage)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING
+         id,
+         installation_id,
+         timestamp,
+         power_kw::float   AS power_kw,
+         energy_kwh::float AS energy_kwh,
+         voltage::float    AS voltage`,
+      [id, installationId, timestamp, power_kw, energy_kwh, voltage]
+    );
+
+    // 5. Location points at the new resource under the same mount path.
+    res
+      .status(201)
+      .location(`${req.baseUrl}/${id}`)
+      .json(inserted.rows[0]);
   } catch (err) {
     next(err);
   }
