@@ -15,11 +15,21 @@
  *   401 INVALID_TOKEN        - signature/expiry/format failure
  *   403 FORBIDDEN_SCOPE      - authenticated, but wrong scope
  *   500 SERVER_ERROR         - authenticate skipped (developer error)
+ *
+ * Every 401 carries `WWW-Authenticate: Bearer realm="solar-api"` (RFC 6750
+ * section 3). A 401 without that header tells a client the request failed but
+ * not which scheme to retry with, so the header is applied at each 401 below
+ * via AUTH_CHALLENGE_HEADER / AUTH_CHALLENGE_VALUE.
  */
 
 const jwt = require('jsonwebtoken');
 
 const AUTH_SCHEME = 'bearer ';
+
+// The challenge sent with every 401. The realm names this API so a client that
+// talks to several services can tell which one rejected the token.
+const AUTH_CHALLENGE_HEADER = 'WWW-Authenticate';
+const AUTH_CHALLENGE_VALUE = 'Bearer realm="solar-api"';
 
 /**
  * Verify the bearer token and attach the decoded payload to req.user.
@@ -28,27 +38,36 @@ function authenticate(req, res, next) {
   const header = req.headers.authorization;
 
   if (!header) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      code: 'NO_TOKEN',
-    });
+    return res
+      .status(401)
+      .set(AUTH_CHALLENGE_HEADER, AUTH_CHALLENGE_VALUE)
+      .json({
+        error: 'Authentication required',
+        code: 'NO_TOKEN',
+      });
   }
 
   // Scheme check is case-insensitive ("Bearer", "bearer", "BEARER").
   if (header.slice(0, AUTH_SCHEME.length).toLowerCase() !== AUTH_SCHEME) {
-    return res.status(401).json({
-      error: 'Invalid authorization header',
-      code: 'INVALID_AUTH_HEADER',
-    });
+    return res
+      .status(401)
+      .set(AUTH_CHALLENGE_HEADER, AUTH_CHALLENGE_VALUE)
+      .json({
+        error: 'Invalid authorization header',
+        code: 'INVALID_AUTH_HEADER',
+      });
   }
 
   const token = header.slice(AUTH_SCHEME.length).trim();
 
   if (!token) {
-    return res.status(401).json({
-      error: 'Invalid authorization header',
-      code: 'INVALID_AUTH_HEADER',
-    });
+    return res
+      .status(401)
+      .set(AUTH_CHALLENGE_HEADER, AUTH_CHALLENGE_VALUE)
+      .json({
+        error: 'Invalid authorization header',
+        code: 'INVALID_AUTH_HEADER',
+      });
   }
 
   try {
@@ -60,10 +79,13 @@ function authenticate(req, res, next) {
   } catch (err) {
     // TokenExpiredError, JsonWebTokenError, NotBeforeError all collapse to the
     // same response - the client learns nothing about why it failed.
-    return res.status(401).json({
-      error: 'Invalid or expired token',
-      code: 'INVALID_TOKEN',
-    });
+    return res
+      .status(401)
+      .set(AUTH_CHALLENGE_HEADER, AUTH_CHALLENGE_VALUE)
+      .json({
+        error: 'Invalid or expired token',
+        code: 'INVALID_TOKEN',
+      });
   }
 }
 

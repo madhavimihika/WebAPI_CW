@@ -12,6 +12,10 @@
  * The 401 body is deliberately identical for "no such user" and "wrong
  * password" so the response cannot be used to enumerate valid usernames.
  *
+ * That 401 also carries `WWW-Authenticate: Bearer realm="solar-api"` (RFC 6750
+ * section 3), matching the 401s produced by middleware/auth.js - a client that
+ * gets challenged here and retries there should see one consistent scheme.
+ *
  * The JWT payload carries the caller's role/scope/jurisdiction/installation
  * so downstream middleware can authorise requests without a second DB hit.
  * password_hash is never read into the response.
@@ -82,10 +86,13 @@ router.post('/login', async (req, res, next) => {
     const passwordMatches = await bcrypt.compare(req.body.password, hash);
 
     if (!user || !passwordMatches) {
-      return res.status(401).json({
-        error: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS',
-      });
+      return res
+        .status(401)
+        .set('WWW-Authenticate', 'Bearer realm="solar-api"')
+        .json({
+          error: 'Invalid credentials',
+          code: 'INVALID_CREDENTIALS',
+        });
     }
 
     // The `sub` claim must be a string for HS256 JWTs.
