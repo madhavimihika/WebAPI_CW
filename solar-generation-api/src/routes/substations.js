@@ -35,6 +35,7 @@
 const express = require('express');
 const pool = require('../db');
 const { authenticate, requireScope } = require('../middleware/auth');
+const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
 
 const router = express.Router();
 
@@ -74,6 +75,7 @@ router.get('/', authenticate, requireScope('analyst-read'), async (req, res, nex
       params
     );
 
+    res.set('ETag', generateETag(rows));
     res.json({ data: rows, total: rows.length });
   } catch (err) {
     next(err);
@@ -126,13 +128,16 @@ router.get('/:id', authenticate, requireScope('analyst-read'), async (req, res, 
 
     // province_id is only a join artifact - the response keeps its original
     // { id, name, district_id } shape.
-    res.json({
+    const responseBody = {
       data: {
         id: substation.id,
         name: substation.name,
         district_id: substation.district_id,
       },
-    });
+    };
+    setCacheHeaders(res, responseBody, new Date());
+    if (checkConditional(req, res, generateETag(responseBody))) return;
+    res.json(responseBody);
   } catch (err) {
     next(err);
   }

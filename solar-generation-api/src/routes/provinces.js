@@ -30,22 +30,27 @@
  *   caller might not be entitled to, so it is the first that is jurisdiction
  *   checked (see the handler for the exact rule).
  *
- * All queries are parameterized ($1). Errors are passed to next(err) and
+ * All SQL lives in the model layer (../models/provinces); this file only calls
+ * it and turns the results into responses. Errors are passed to next(err) and
  * handled by the central error handler in app.js.
  */
 
 const express = require('express');
-const pool = require('../db');
+const {
+  findAll,
+  findById,
+  findDistrictsInProvince,
+} = require('../models/provinces');
 const { authenticate, requireScope } = require('../middleware/auth');
+const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
 
 const router = express.Router();
 
 // GET /provinces
 router.get('/', authenticate, requireScope('analyst-read'), async (req, res, next) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT id, name FROM provinces ORDER BY name ASC'
-    );
+    const rows = await findAll();
+    res.set('ETag', generateETag(rows));
     res.json({ data: rows, total: rows.length });
   } catch (err) {
     next(err);
@@ -55,16 +60,16 @@ router.get('/', authenticate, requireScope('analyst-read'), async (req, res, nex
 // GET /provinces/:id
 router.get('/:id', authenticate, requireScope('analyst-read'), async (req, res, next) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT id, name FROM provinces WHERE id = $1',
-      [req.params.id]
-    );
+    const province = await findById(req.params.id);
 
-    if (rows.length === 0) {
+    if (province === null) {
       return res.status(404).json({ error: 'Province not found' });
     }
 
-    res.json({ data: rows[0] });
+    const responseBody = { data: province };
+    setCacheHeaders(res, responseBody, new Date());
+    if (checkConditional(req, res, generateETag(responseBody))) return;
+    res.json(responseBody);
   } catch (err) {
     next(err);
   }
@@ -83,11 +88,9 @@ router.get(
       // 1. The province must exist. This also gives a cheap 404 before any
       //    jurisdiction decision is made, so "no such province" stays
       //    distinguishable from "exists but is empty" (200 + []).
-      const province = await pool.query('SELECT id FROM provinces WHERE id = $1', [
-        provinceId,
-      ]);
+      const province = await findById(provinceId);
 
-      if (province.rows.length === 0) {
+      if (province === null) {
         return res.status(404).json({ error: 'Province not found' });
       }
 
@@ -117,14 +120,11 @@ router.get(
 
       if (role === 'district') {
         // Does the caller's own district sit inside this province? One row
-        // proves it; zero rows covers both "wrong province" and "no such
+        // proves it; no row covers both "wrong province" and "no such
         // district on the token".
-        const ownDistrict = await pool.query(
-          'SELECT id FROM districts WHERE id = $1 AND province_id = $2',
-          [jurisdictionId, provinceId]
-        );
+        const ownDistrict = await findById(jurisdictionId);
 
-        if (ownDistrict.rows.length === 0) {
+        if (ownDistrict === null) {
           return res.status(403).json({
             error: 'Outside your jurisdiction',
             code: 'OUTSIDE_JURISDICTION',
@@ -132,10 +132,7 @@ router.get(
         }
       }
 
-      const { rows } = await pool.query(
-        'SELECT id, name, province_id FROM districts WHERE province_id = $1 ORDER BY name ASC',
-        [provinceId]
-      );
+      const rows = await findDistrictsInProvince(provinceId);
 
       res.json({ data: rows, total: rows.length });
     } catch (err) {

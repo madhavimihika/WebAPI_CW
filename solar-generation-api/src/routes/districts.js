@@ -38,6 +38,7 @@ const express = require('express');
 const pool = require('../db');
 const { authenticate, requireScope } = require('../middleware/auth');
 const { requireJurisdiction } = require('../middleware/authorize');
+const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
 
 const router = express.Router();
 
@@ -77,6 +78,7 @@ router.get('/', authenticate, requireScope('analyst-read'), async (req, res, nex
       params
     );
 
+    res.set('ETag', generateETag(rows));
     res.json({ data: rows, total: rows.length });
   } catch (err) {
     next(err);
@@ -100,7 +102,10 @@ router.get(
         return res.status(404).json({ error: 'District not found' });
       }
 
-      res.json({ data: rows[0] });
+      const responseBody = { data: rows[0] };
+      setCacheHeaders(res, responseBody, new Date());
+      if (checkConditional(req, res, generateETag(responseBody))) return;
+      res.json(responseBody);
     } catch (err) {
       next(err);
     }

@@ -40,6 +40,7 @@
 const express = require('express');
 const pool = require('../db');
 const { authenticate, requireScope } = require('../middleware/auth');
+const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
 
 const router = express.Router();
 
@@ -120,6 +121,7 @@ router.get('/', authenticate, requireScope('analyst-read'), async (req, res, nex
     `;
 
     const { rows } = await pool.query(sql, params);
+    res.set('ETag', generateETag(rows));
     res.json({ data: rows, total: rows.length });
   } catch (err) {
     next(err);
@@ -189,6 +191,8 @@ router.get(
         });
       }
 
+      setCacheHeaders(res, reading, reading.timestamp);
+      if (checkConditional(req, res, generateETag(reading))) return;
       res.json(reading);
     } catch (err) {
       next(err);
@@ -247,8 +251,11 @@ router.get('/:id', authenticate, requireScope('analyst-read'), async (req, res, 
     }
 
     const lastKnownReading = await getLastReading(req.params.id);
-
-    res.json({ data: { ...installation, last_known_reading: lastKnownReading } });
+    const responseBody = { data: { ...installation, last_known_reading: lastKnownReading } };
+    const lastModifiedDate = installation.created_at || new Date();
+    setCacheHeaders(res, responseBody, lastModifiedDate);
+    if (checkConditional(req, res, generateETag(responseBody))) return;
+    res.json(responseBody);
   } catch (err) {
     next(err);
   }
