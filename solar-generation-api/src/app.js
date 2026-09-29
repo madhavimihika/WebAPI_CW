@@ -10,6 +10,7 @@ const installationsRouter = require("./routes/installations");
 const readingsRouter = require("./routes/readings");
 
 const app = express();
+app.set('etag', false);
 
 app.use(express.json());
 
