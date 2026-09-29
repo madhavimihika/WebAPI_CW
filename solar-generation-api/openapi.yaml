@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: SLSEA Solar Generation API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     National solar generation data API for the Sri Lanka Sustainable Energy
     Authority (SLSEA).
@@ -24,6 +24,39 @@ info:
 
     Collection endpoints return a `data` array and, where relevant, a `total`
     count or a `pagination` block.
+
+    ## Authentication
+
+    All data endpoints require a JWT bearer token. Obtain one from
+    `POST /auth/login`, then send it as:
+
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    Scopes:
+
+    * `analyst-read` - read access to provinces, districts, substations,
+      installations and readings.
+    * `installation-write` - write access used by metering devices to post
+      readings.
+
+    A request without a valid token is rejected with `401` and a
+    `WWW-Authenticate: Bearer realm="solar-api"` challenge header. A valid token
+    whose scope or jurisdiction does not cover the request is rejected with
+    `403`.
+
+    ## Jurisdiction
+
+    Analyst tokens carry a jurisdiction (national, provincial or district). Read
+    endpoints only ever return data inside the caller's jurisdiction, so a
+    district-level analyst sees only their own district's substations,
+    installations and readings.
+
+    ## Unauthenticated endpoints
+
+    `GET /`, `POST /auth/login`, `GET /docs` and `GET /openapi.yaml` are the only
+    endpoints that do not require a token.
   contact:
     name: SLSEA Web API Support
     email: support@slsea.example
@@ -38,6 +71,8 @@ servers:
     description: Secondary local development server
 
 tags:
+  - name: Auth
+    description: Authentication - exchange credentials for a bearer token.
   - name: Provinces
     description: Top level of the network geography - the nine provinces.
   - name: Districts
@@ -49,14 +84,21 @@ tags:
   - name: Readings
     description: Time-series power/energy/voltage readings reported by installations.
 
+# No global `security` block on purpose. A top-level default would also apply to
+# GET / and POST /auth/login, which must stay reachable without a token, so
+# `security` is declared per operation instead.
+
 paths:
   /:
     get:
       tags:
         - Installations
       summary: Service health check
-      description: Returns a small status object confirming the API is running and which session it belongs to.
+      description: |
+        Returns a small status object confirming the API is running and which
+        session it belongs to. This endpoint is public and requires no token.
       operationId: getServiceStatus
+      security: []
       responses:
         '200':
           description: Service is running.
@@ -77,13 +119,58 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Exchange credentials for a bearer token
+      description: |
+        Validates a username/password pair and returns a signed JWT together with
+        a description of the authenticated account.
+
+        The token must be sent on subsequent requests as
+        `Authorization: Bearer <token>`. It expires after `expires_in` seconds.
+
+        The `401` body is deliberately identical for an unknown username and a
+        wrong password, so the response cannot be used to enumerate valid
+        usernames.
+
+        This endpoint is public and requires no token.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        description: The credentials to exchange for a token.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Credentials accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /provinces:
     get:
       tags:
         - Provinces
       summary: List all provinces
-      description: Returns every province in the national network, ordered by name.
+      description: |
+        Returns every province in the national network, ordered by name.
+
+        Requires scope `analyst-read`.
       operationId: listProvinces
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: A list of provinces.
@@ -98,6 +185,10 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Province'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -106,8 +197,13 @@ paths:
       tags:
         - Provinces
       summary: Get a single province by id
-      description: Returns one province, or 404 if no province has that id.
+      description: |
+        Returns one province, or 404 if no province has that id.
+
+        Requires scope `analyst-read`.
       operationId: getProvinceById
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -120,6 +216,10 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/Province'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -135,7 +235,19 @@ paths:
         Returns the districts that belong to the given province, ordered by name.
         Returns 404 when the province does not exist, and `{ data: [], total: 0 }`
         when the province exists but contains no districts.
+
+        Requires scope `analyst-read`. Jurisdiction rules:
+
+        * `national` - any province.
+        * `provincial` - only the province named by the caller's jurisdiction.
+        * `district` - only if the caller's own district lies inside this province.
+        * `device` - always rejected with `FORBIDDEN_ROLE`.
+
+        An out-of-jurisdiction request is rejected with 403
+        `OUTSIDE_JURISDICTION`.
       operationId: listDistrictsByProvince
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -152,6 +264,10 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/District'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -161,12 +277,22 @@ paths:
     get:
       tags:
         - Districts
-      summary: List all districts
-      description: Returns every district in the national network, ordered by name.
+      summary: List all districts in the caller's jurisdiction
+      description: |
+        Returns districts ordered by name, filtered to the caller's jurisdiction:
+
+        * `national` - every district in the country.
+        * `provincial` - only districts in the caller's province.
+        * `district` - only the caller's own district.
+        * `device` - rejected with 403 `FORBIDDEN_ROLE`.
+
+        Requires scope `analyst-read`.
       operationId: listDistricts
+      security:
+        - bearerAuth: []
       responses:
         '200':
-          description: A list of districts.
+          description: A list of districts visible to the caller.
           content:
             application/json:
               schema:
@@ -178,6 +304,10 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/District'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -186,8 +316,14 @@ paths:
       tags:
         - Districts
       summary: Get a single district by id
-      description: Returns one district, or 404 if no district has that id.
+      description: |
+        Returns one district, or 404 if no district has that id.
+
+        Requires scope `analyst-read` and the district must lie inside the
+        caller's jurisdiction; otherwise 403 `OUTSIDE_JURISDICTION`.
       operationId: getDistrictById
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -200,6 +336,10 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/District'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -215,7 +355,12 @@ paths:
         Returns the substations that belong to the given district, ordered by name.
         Returns 404 when the district does not exist, and `{ data: [], total: 0 }`
         when the district exists but contains no substations.
+
+        Requires scope `analyst-read` and the district must lie inside the
+        caller's jurisdiction; otherwise 403 `OUTSIDE_JURISDICTION`.
       operationId: listSubstationsByDistrict
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -232,6 +377,10 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Substation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -241,12 +390,23 @@ paths:
     get:
       tags:
         - Substations
-      summary: List all substations
-      description: Returns every substation in the national network, ordered by name.
+      summary: List all substations in the caller's jurisdiction
+      description: |
+        Returns substations ordered by name, resolved through their parent
+        district and filtered to the caller's jurisdiction:
+
+        * `national` - every substation in the country.
+        * `provincial` - only substations in districts of the caller's province.
+        * `district` - only substations in the caller's own district.
+        * `device` - rejected with 403 `FORBIDDEN_ROLE`.
+
+        Requires scope `analyst-read`.
       operationId: listSubstations
+      security:
+        - bearerAuth: []
       responses:
         '200':
-          description: A list of substations.
+          description: A list of substations visible to the caller.
           content:
             application/json:
               schema:
@@ -258,6 +418,10 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Substation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -266,8 +430,15 @@ paths:
       tags:
         - Substations
       summary: Get a single substation by id
-      description: Returns one substation, or 404 if no substation has that id.
+      description: |
+        Returns one substation, or 404 if no substation has that id.
+
+        Requires scope `analyst-read`. The substation's parent district and
+        province are resolved and checked against the caller's jurisdiction;
+        otherwise 403 `OUTSIDE_JURISDICTION`.
       operationId: getSubstationById
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -280,6 +451,10 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/Substation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -295,7 +470,13 @@ paths:
         Returns the solar installations connected to the given substation, ordered
         by site name. Returns 404 when the substation does not exist, and
         `{ data: [], total: 0 }` when it exists but has no installations.
+
+        Requires scope `analyst-read`. The substation's parent district and
+        province are resolved and checked against the caller's jurisdiction;
+        otherwise 403 `OUTSIDE_JURISDICTION`.
       operationId: listInstallationsBySubstation
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -312,6 +493,10 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Installation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -329,7 +514,19 @@ paths:
         * `province_id` - installations in a province (via substations -> districts)
         * `district_id` - installations in a district (via substations)
         * `substation_id` - installations directly connected to a substation
+
+        Requires scope `analyst-read`. These filters narrow the result set but do
+        not widen it: jurisdiction is applied independently, so a district-level
+        caller cannot use `?province_id=` to read outside their own district. Each
+        installation is resolved through its substation and district:
+
+        * `national` - every installation in the country.
+        * `provincial` - only installations in the caller's province.
+        * `district` - only installations in the caller's own district.
+        * `device` - rejected with 403 `FORBIDDEN_ROLE`.
       operationId: listInstallations
+      security:
+        - bearerAuth: []
       parameters:
         - name: province_id
           in: query
@@ -354,7 +551,7 @@ paths:
             example: sub-1
       responses:
         '200':
-          description: A list of installations.
+          description: A list of installations visible to the caller.
           content:
             application/json:
               schema:
@@ -366,6 +563,10 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Installation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -377,7 +578,13 @@ paths:
       description: |
         Returns one installation together with the names/ids of its substation,
         district and province. Returns 404 if no installation has that id.
+
+        Requires scope `analyst-read`. The installation's district and province
+        are resolved and checked against the caller's jurisdiction; otherwise 403
+        `OUTSIDE_JURISDICTION`.
       operationId: getInstallationById
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -390,6 +597,10 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/Installation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -409,7 +620,13 @@ paths:
         Returns 404 with `Installation not found` when the installation does not
         exist, or 404 with `No readings for this installation` when the site exists
         but has never reported a reading.
+
+        Requires scope `analyst-read`. The installation's district and province
+        are resolved and checked against the caller's jurisdiction; otherwise 403
+        `OUTSIDE_JURISDICTION`.
       operationId: getLastKnownReading
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -419,6 +636,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Reading'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -435,7 +656,13 @@ paths:
         `pages`, `next` and `previous` links.
 
         Returns 404 when the installation does not exist.
+
+        Requires scope `analyst-read`. The installation's district and province
+        are resolved and checked against the caller's jurisdiction before any
+        reading rows are read; otherwise 403 `OUTSIDE_JURISDICTION`.
       operationId: listInstallationReadings
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
         - name: page
@@ -513,6 +740,10 @@ paths:
                       $ref: '#/components/schemas/Reading'
                   pagination:
                     $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -525,6 +756,10 @@ paths:
       description: |
         Records one reading pushed by an installation's metering device.
 
+        Requires scope `installation-write`. A call whose token does not name the
+        installation in the path is rejected with 403 `FORBIDDEN_INSTALLATION`,
+        so a device can only ever write to its own site.
+
         Validation rules:
 
         * `timestamp`, `power_kw`, `energy_kwh` and `voltage` are all required.
@@ -533,9 +768,11 @@ paths:
           strings are rejected).
 
         Only one reading may exist per (installation, timestamp); posting a
-        duplicate returns 409. On success the created reading is returned with a
-        `Location` header pointing at the new resource.
+        duplicate returns 409 with code `DUPLICATE_READING`. On success the created
+        reading is returned with a `Location` header pointing at the new resource.
       operationId: createInstallationReading
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       requestBody:
@@ -551,6 +788,7 @@ paths:
           headers:
             Location:
               description: URL of the newly created reading.
+              required: true
               schema:
                 type: string
                 format: uri
@@ -561,10 +799,14 @@ paths:
                 $ref: '#/components/schemas/Reading'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/ConflictError'
+          $ref: '#/components/responses/DuplicateReading'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -576,9 +818,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        Placeholder for JWT bearer authentication. Authentication is not yet
-        enforced by the API - this scheme is declared so that the contract is
-        ready when it is implemented.
+        JWT bearer authentication. Obtain a token from `POST /auth/login` and send
+        it as `Authorization: Bearer <token>`.
+
+        The token payload carries `role` (national, provincial, district or
+        device), `scope` (analyst-read or installation-write) and the caller's
+        `jurisdiction_id`. These drive both scope and jurisdiction checks
+        server-side.
+
+        A missing, malformed or expired token produces `401` with the challenge
+        header `WWW-Authenticate: Bearer realm="solar-api"`.
 
   parameters:
     IdPath:
@@ -590,7 +839,94 @@ components:
         type: string
         example: prov-1
 
+  headers:
+    WWWAuthenticate:
+      description: |
+        Challenge sent with every 401 response, naming the authentication scheme
+        the caller should use.
+      required: true
+      schema:
+        type: string
+        example: Bearer realm="solar-api"
+
   responses:
+    Unauthorized:
+      description: |
+        Authentication failed or was not supplied. Exactly one of the following
+        codes is returned:
+
+        * `NO_TOKEN` - no Authorization header at all.
+        * `INVALID_AUTH_HEADER` - the header is present but the scheme is not
+          `Bearer`, or the token part is empty.
+        * `INVALID_TOKEN` - the token is malformed, has a bad signature, or has
+          expired.
+        * `INVALID_CREDENTIALS` - login only: the username or password is wrong.
+      headers:
+        WWW-Authenticate:
+          $ref: '#/components/headers/WWWAuthenticate'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            noToken:
+              summary: No Authorization header was sent.
+              value:
+                error: Authentication required
+                code: NO_TOKEN
+            invalidAuthHeader:
+              summary: The header was not a valid Bearer header.
+              value:
+                error: Invalid authorization header
+                code: INVALID_AUTH_HEADER
+            invalidToken:
+              summary: The token was malformed, wrongly signed or expired.
+              value:
+                error: Invalid or expired token
+                code: INVALID_TOKEN
+            invalidCredentials:
+              summary: Login with a wrong username or password.
+              value:
+                error: Invalid credentials
+                code: INVALID_CREDENTIALS
+    Forbidden:
+      description: |
+        The token is valid but does not permit this request. Possible codes:
+
+        * `FORBIDDEN_SCOPE` - the token's scope does not match the scope the
+          endpoint requires.
+        * `FORBIDDEN_ROLE` - the role (a metering device) may never perform
+          analyst reads.
+        * `FORBIDDEN_INSTALLATION` - a device token tried to write to an
+          installation other than its own.
+        * `OUTSIDE_JURISDICTION` - the resource is outside the caller's
+          jurisdiction.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            forbiddenScope:
+              summary: Wrong scope for the endpoint.
+              value:
+                error: Insufficient scope
+                code: FORBIDDEN_SCOPE
+                required: analyst-read
+            forbiddenRole:
+              summary: A device token attempted an analyst read.
+              value:
+                error: Device tokens cannot perform analyst reads
+                code: FORBIDDEN_ROLE
+            forbiddenInstallation:
+              summary: A device token attempted to write to another installation.
+              value:
+                error: Device cannot write to another installation
+                code: FORBIDDEN_INSTALLATION
+            outsideJurisdiction:
+              summary: The resource lies outside the caller's jurisdiction.
+              value:
+                error: Outside your jurisdiction
+                code: OUTSIDE_JURISDICTION
     NotFound:
       description: The requested resource does not exist.
       content:
@@ -599,6 +935,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error: Resource not found
+            code: NOT_FOUND
     ValidationError:
       description: The request body failed validation.
       content:
@@ -611,8 +948,11 @@ components:
             details:
               - field: power_kw
                 message: power_kw is required
-    ConflictError:
-      description: A reading already exists for this installation and timestamp.
+    DuplicateReading:
+      description: |
+        A reading already exists for this installation and timestamp. Readings are
+        keyed by (installation, timestamp), so the same instant cannot be recorded
+        twice.
       content:
         application/json:
           schema:
@@ -628,8 +968,108 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error: Internal server error
+            code: SERVER_ERROR
 
   schemas:
+
+    LoginRequest:
+      type: object
+      description: Credentials exchanged for a bearer token by POST /auth/login.
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Account username.
+          example: national-user
+        password:
+          type: string
+          format: password
+          description: Account password.
+          example: national-pass-1
+
+    LoginUser:
+      type: object
+      description: |
+        The authenticated account, as carried in the token. `jurisdiction_level`
+        and `jurisdiction_id` are null for national and device accounts, and
+        `installation_id` is null for every non-device account.
+      required:
+        - id
+        - username
+        - role
+        - scope
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the user.
+          example: u-004
+        username:
+          type: string
+          description: Account username.
+          example: national-user
+        role:
+          type: string
+          description: Role the account acts as.
+          enum:
+            - national
+            - provincial
+            - district
+            - device
+          example: national
+        scope:
+          type: string
+          description: Scope the token is granted.
+          enum:
+            - analyst-read
+            - installation-write
+          example: analyst-read
+        jurisdiction_level:
+          type: string
+          nullable: true
+          description: Level of the account's jurisdiction, or null when not scoped to a geography.
+          enum:
+            - district
+            - province
+          example: null
+        jurisdiction_id:
+          type: string
+          nullable: true
+          description: Id of the district or province the account is scoped to, or null.
+          example: null
+        installation_id:
+          type: string
+          nullable: true
+          description: Id of the installation a device account reports for, or null.
+          example: null
+
+    LoginResponse:
+      type: object
+      description: A freshly minted bearer token plus a description of the account.
+      required:
+        - token
+        - token_type
+        - expires_in
+        - user
+      properties:
+        token:
+          type: string
+          description: The signed JWT. Send it as `Authorization: Bearer <token>`.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInJvbGUiOiJuYXRpb25hbCJ9.signature
+        token_type:
+          type: string
+          description: Always `Bearer`.
+          enum:
+            - Bearer
+          example: Bearer
+        expires_in:
+          type: integer
+          format: int32
+          description: Lifetime of the token in seconds from the time it was issued.
+          example: 3600
+        user:
+          $ref: '#/components/schemas/LoginUser'
 
     Province:
       type: object
@@ -869,9 +1309,10 @@ components:
 
     ErrorResponse:
       type: object
-      description: Standard error envelope.
+      description: Standard error envelope returned by every 4xx and 5xx response.
       required:
         - error
+        - code
       properties:
         error:
           type: string
@@ -879,8 +1320,8 @@ components:
           example: Installation not found
         code:
           type: string
-          description: Machine readable error code, present on validation and conflict errors.
-          example: INVALID_BODY
+          description: Machine readable error code.
+          example: OUTSIDE_JURISDICTION
         details:
           type: array
           description: Field level validation failures, present on 400 responses.
@@ -892,10 +1333,9 @@ components:
             properties:
               field:
                 type: string
+                description: Name of the offending field.
                 example: power_kw
               message:
                 type: string
+                description: Why the field was rejected.
                 example: power_kw is required
-
-security:
-  - bearerAuth: []
