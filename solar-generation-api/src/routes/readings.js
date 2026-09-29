@@ -3,8 +3,11 @@
  * ---------------------------------------------------------------------------
  * READINGS endpoints, mounted under an installation.
  *
- *   GET  /installations/:id/readings -> paginated readings, newest first
+ *   GET  /installations/:id/readings -> paginated readings, newest first (public)
  *   POST /installations/:id/readings -> record one new reading (metering device)
+ *                                      requires authenticate + scope
+ *                                      'installation-write', and the token's
+ *                                      installation_id must match :id
  *
  * Mounted with `app.use('/installations/:id/readings', readingsRouter)` and
  * `express.Router({ mergeParams: true })` so `:id` from the mount path is
@@ -26,6 +29,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const pool = require('../db');
+const { authenticate, requireScope } = require('../middleware/auth');
 
 // mergeParams: true is required - without it req.params.id from the mount path
 // ('/installations/:id/readings') would not be forwarded to this router.
@@ -189,7 +193,46 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /installations/:id/readings
-router.post('/', async (req, res, next) => {
+//
+// AUTHENTICATION / AUTHORIZATION FLOW
+//
+//   1. authenticate                         -> no Authorization header
+//                                              -> 401 { code: "NO_TOKEN" }
+//                                           -> non-Bearer scheme
+//                                              -> 401 { code: "INVALID_AUTH_HEADER" }
+//                                           -> bad signature / expired / malformed
+//                                              -> 401 { code: "INVALID_TOKEN" }
+//                                           -> otherwise sets req.user and continues
+//
+//   2. requireScope('installation-write')    -> district token (scope
+//                                              'analyst-read') never reaches the
+//                                              handler -> 403 { code: "FORBIDDEN_SCOPE",
+//                                              required: "installation-write" }
+//
+//   3. installation binding check            -> device token for installation A
+//                                              posting to installation B
+//                                              -> 403 { code: "FORBIDDEN_INSTALLATION" }
+//
+//   4. handler                               -> device token for installation A
+//                                              posting to installation A -> 201
+//
+// Both checks run BEFORE any body validation or database work, so an
+// unauthenticated caller cannot probe which timestamps already exist.
+//
+// This route is intentionally NOT gated by requireJurisdiction: that middleware
+// rejects role 'device' outright, and a metering device is exactly who writes
+// readings. The installation-scoped binding check in step 3 is the correct
+// control here.
+//
+// Note on step 3: the String() coercion is deliberate. ids arrive as strings off
+// the path params and as strings inside the JWT payload (JSON has no integer
+// type), so a type-strict !== could reject a legitimate device if id types ever
+// diverge between the token and the route.
+router.post(
+  '/',
+  authenticate,
+  requireScope('installation-write'),
+  async (req, res, next) => {
   try {
     const installationId = req.params.id;
 
@@ -204,7 +247,16 @@ router.post('/', async (req, res, next) => {
       return res.status(404).json({ error: 'Installation not found' });
     }
 
-    // 2. Validate the payload before touching the database.
+    // 2. A device token may only write to its own installation. Without this, a
+    //    correctly-scoped device could post readings to any site in the fleet.
+    if (String(req.user.installation_id) !== String(req.params.id)) {
+      return res.status(403).json({
+        error: 'Device cannot write to another installation',
+        code: 'FORBIDDEN_INSTALLATION',
+      });
+    }
+
+    // 3. Validate the payload before touching the database.
     const validation = validateReadingBody(req.body);
     if (!validation.valid) {
       return res.status(400).json({
@@ -216,7 +268,7 @@ router.post('/', async (req, res, next) => {
 
     const { timestamp, power_kw, energy_kwh, voltage } = validation.value;
 
-    // 3. Idempotency: one reading per (installation_id, timestamp). Checked up
+    // 4. Idempotency: one reading per (installation_id, timestamp). Checked up
     //    front so a duplicate returns 409 rather than a primary-key error.
     const duplicate = await pool.query(
       'SELECT id FROM readings WHERE installation_id = $1 AND timestamp = $2',
@@ -230,7 +282,7 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    // 4. Generate the id and insert. RETURNING with `::float` casts gives the
+    // 5. Generate the id and insert. RETURNING with `::float` casts gives the
     //    NUMERIC columns back as JSON numbers, matching the GET response shape.
     const id = `read-${crypto.randomUUID()}`;
 
@@ -248,7 +300,7 @@ router.post('/', async (req, res, next) => {
       [id, installationId, timestamp, power_kw, energy_kwh, voltage]
     );
 
-    // 5. Location points at the new resource under the same mount path.
+    // 6. Location points at the new resource under the same mount path.
     res
       .status(201)
       .location(`${req.baseUrl}/${id}`)
@@ -256,6 +308,7 @@ router.post('/', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+  }
+);
 
 module.exports = router;
