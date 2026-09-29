@@ -3,11 +3,20 @@
  * ---------------------------------------------------------------------------
  * READINGS endpoints, mounted under an installation.
  *
- *   GET  /installations/:id/readings -> paginated readings, newest first (public)
+ *   GET  /installations/:id/readings -> paginated readings, newest first
+ *                                      requires authenticate + scope
+ *                                      'analyst-read', and the installation's
+ *                                      district must be inside the caller's
+ *                                      jurisdiction
  *   POST /installations/:id/readings -> record one new reading (metering device)
  *                                      requires authenticate + scope
  *                                      'installation-write', and the token's
  *                                      installation_id must match :id
+ *
+ * The GET handler resolves jurisdiction itself rather than mounting the shared
+ * requireJurisdiction middleware: that middleware reads a DISTRICT id off
+ * req.params.id, and here :id is an INSTALLATION id. The installation ->
+ * substation -> district walk is two joins it does not do.
  *
  * Mounted with `app.use('/installations/:id/readings', readingsRouter)` and
  * `express.Router({ mergeParams: true })` so `:id` from the mount path is
@@ -125,14 +134,31 @@ function validateReadingBody(body) {
 }
 
 // GET /installations/:id/readings
-router.get('/', async (req, res, next) => {
+router.get(
+  '/',
+  authenticate,
+  requireScope('analyst-read'),
+  async (req, res, next) => {
   try {
     const installationId = req.params.id;
+    const { role, jurisdiction_id: jurisdictionId } = req.user;
 
-    // 1. Make sure the installation exists before touching its readings, so a
-    //    bad id returns 404 rather than an empty page of data.
+    if (role === 'device') {
+      return res.status(403).json({
+        error: 'Device tokens cannot perform analyst reads',
+        code: 'FORBIDDEN_ROLE',
+      });
+    }
+
+    // 1. The installation must exist, and we need to know which district it
+    //    sits in. One joined query answers both, so a bad id still returns 404
+    //    rather than an empty page of data.
     const installation = await pool.query(
-      'SELECT id FROM installations WHERE id = $1',
+      `SELECT i.id, s.district_id, d.province_id
+         FROM installations i
+         JOIN substations s ON s.id = i.substation_id
+         JOIN districts d ON d.id = s.district_id
+         WHERE i.id = $1`,
       [installationId]
     );
 
@@ -140,12 +166,30 @@ router.get('/', async (req, res, next) => {
       return res.status(404).json({ error: 'Installation not found' });
     }
 
-    // 2. Normalise pagination: page >= 1, 1 <= limit <= 200.
+    const site = installation.rows[0];
+
+    // 2. Jurisdiction, checked BEFORE any reading rows are touched. Same
+    //    String() coercion as requireJurisdiction, for the same reason: JWT ids
+    //    are strings, and TEXT columns are strings, but this survives a change
+    //    to either side.
+    const allowed =
+      role === 'national' ||
+      (role === 'provincial' && String(site.province_id) === String(jurisdictionId)) ||
+      (role === 'district' && String(site.district_id) === String(jurisdictionId));
+
+    if (!allowed) {
+      return res.status(403).json({
+        error: 'Outside your jurisdiction',
+        code: 'OUTSIDE_JURISDICTION',
+      });
+    }
+
+    // 3. Normalise pagination: page >= 1, 1 <= limit <= 200.
     const page = parsePositiveInt(req.query.page, DEFAULT_PAGE);
     const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    // 3. Total row count drives `pages` and the next/previous links.
+    // 4. Total row count drives `pages` and the next/previous links.
     const countResult = await pool.query(
       'SELECT count(*)::int AS total FROM readings WHERE installation_id = $1',
       [installationId]
@@ -153,7 +197,7 @@ router.get('/', async (req, res, next) => {
     const total = countResult.rows[0].total;
     const pages = Math.max(1, Math.ceil(total / limit));
 
-    // 4. The page of rows. `::float` turns the NUMERIC columns into JSON numbers;
+    // 5. The page of rows. `::float` turns the NUMERIC columns into JSON numbers;
     //    `timestamp DESC` uses the (installation_id, timestamp DESC) index.
     const readingsResult = await pool.query(
       `SELECT
@@ -170,10 +214,11 @@ router.get('/', async (req, res, next) => {
       [installationId, limit, offset]
     );
 
-    // 5. Links are relative to the request; req.baseUrl is
+    // 6. Links are relative to the request; req.baseUrl is
     //    '/installations/:id/readings' with the real id substituted.
     const basePath = req.baseUrl;
-    const next = page < pages ? buildPageLink(installationId, page + 1, limit, basePath) : null;
+    const nextLink =
+      page < pages ? buildPageLink(installationId, page + 1, limit, basePath) : null;
     const previous = page > 1 ? buildPageLink(installationId, page - 1, limit, basePath) : null;
 
     res.json({
@@ -183,14 +228,15 @@ router.get('/', async (req, res, next) => {
         page,
         limit,
         pages,
-        next,
+        next: nextLink,
         previous,
       },
     });
   } catch (err) {
     next(err);
   }
-});
+  }
+);
 
 // POST /installations/:id/readings
 //

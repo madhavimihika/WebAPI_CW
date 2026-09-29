@@ -13,10 +13,19 @@
  *                               "Installation not found" (no such site) or
  *                               "No readings for this installation".
  *
- * Optional filters on the collection (combinable):
- *   ?substation_id=X  direct
- *   ?district_id=X    via substations
- *   ?province_id=X    via substations -> districts
+ * AUTHORIZATION
+ *   Every GET on this router requires a bearer token carrying the
+ *   'analyst-read' scope (authenticate + requireScope).
+ *
+ *   Jurisdiction is enforced inside the handlers rather than with the shared
+ *   requireJurisdiction middleware, because that middleware authorizes against
+ *   a DISTRICT id read off req.params.id - and here :id is an INSTALLATION id.
+ *   The installation -> substation -> district walk is two joins the middleware
+ *   does not perform.
+ *
+ *   The ?district_id / ?province_id filters below are NOT an authorization
+ *   mechanism: they narrow a result set, they do not widen it. Jurisdiction is
+ *   applied independently of whatever the client asks for.
  *
  * Parameterized queries only ($1, $2, ...). Errors are passed to next(err) and
  * handled by the central error handler in app.js.
@@ -29,19 +38,40 @@
 
 const express = require('express');
 const pool = require('../db');
+const { authenticate, requireScope } = require('../middleware/auth');
 
 const router = express.Router();
 
 // GET /installations
-router.get('/', async (req, res, next) => {
+router.get('/', authenticate, requireScope('analyst-read'), async (req, res, next) => {
   try {
     const { substation_id, district_id, province_id } = req.query;
+    const { role, jurisdiction_id: jurisdictionId } = req.user;
 
-    // Build the WHERE clause from whichever filters were supplied. The values
-    // go into `params` and only the placeholder *index* is concatenated into
-    // the SQL, so no user input ever reaches the query text.
+    if (role === 'device') {
+      return res.status(403).json({
+        error: 'Device tokens cannot perform analyst reads',
+        code: 'FORBIDDEN_ROLE',
+      });
+    }
+
+    // Build the WHERE clause from the jurisdiction rule plus whichever filters
+    // were supplied. The values go into `params` and only the placeholder
+    // *index* is concatenated into the SQL, so no user input ever reaches the
+    // query text.
     const conditions = [];
     const params = [];
+
+    // Jurisdiction. The joins are needed not only for filtering but also for
+    // the province -> district -> substation -> installation path to be
+    // traversable at all.
+    if (role === 'provincial') {
+      params.push(jurisdictionId);
+      conditions.push(`d.province_id = $${params.length}`);
+    } else if (role === 'district') {
+      params.push(jurisdictionId);
+      conditions.push(`d.id = $${params.length}`);
+    }
 
     if (substation_id !== undefined) {
       params.push(substation_id);
@@ -60,8 +90,6 @@ router.get('/', async (req, res, next) => {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // The joins are needed not only for filtering but also for the
-    // province -> district -> substation path to be traversable at all.
     const sql = `
       SELECT i.id, i.site_name, i.meter_id, i.substation_id
       FROM installations i
@@ -84,50 +112,94 @@ router.get('/', async (req, res, next) => {
 // answering "what is this site generating right now?". Must be declared before
 // the '/:id' route below, otherwise Express would match '/:id' first and treat
 // "last-known-reading" as an installation id.
-router.get('/:id/last-known-reading', async (req, res, next) => {
-  try {
-    // 1. Does the installation exist? Distinguishes a bad id (404 Installation
-    //    not found) from a real site that simply has no readings yet.
-    const installation = await pool.query(
-      'SELECT id, site_name FROM installations WHERE id = $1',
-      [req.params.id]
-    );
+router.get(
+  '/:id/last-known-reading',
+  authenticate,
+  requireScope('analyst-read'),
+  async (req, res, next) => {
+    try {
+      const { role, jurisdiction_id: jurisdictionId } = req.user;
 
-    if (installation.rows.length === 0) {
-      return res.status(404).json({ error: 'Installation not found' });
+      if (role === 'device') {
+        return res.status(403).json({
+          error: 'Device tokens cannot perform analyst reads',
+          code: 'FORBIDDEN_ROLE',
+        });
+      }
+
+      // 1. Does the installation exist, and where does it sit? Distinguishes a
+      //    bad id (404 Installation not found) from a real site that simply has
+      //    no readings yet, and supplies the district/province the jurisdiction
+      //    decision needs - in the same query.
+      const installation = await pool.query(
+        `SELECT i.id, i.site_name, s.district_id, d.province_id
+           FROM installations i
+           JOIN substations s ON s.id = i.substation_id
+           JOIN districts d ON d.id = s.district_id
+           WHERE i.id = $1`,
+        [req.params.id]
+      );
+
+      if (installation.rows.length === 0) {
+        return res.status(404).json({ error: 'Installation not found' });
+      }
+
+      const site = installation.rows[0];
+
+      const allowed =
+        role === 'national' ||
+        (role === 'provincial' &&
+          String(site.province_id) === String(jurisdictionId)) ||
+        (role === 'district' && String(site.district_id) === String(jurisdictionId));
+
+      if (!allowed) {
+        return res.status(403).json({
+          error: 'Outside your jurisdiction',
+          code: 'OUTSIDE_JURISDICTION',
+        });
+      }
+
+      // 2. Latest reading for this site. ORDER BY timestamp DESC LIMIT 1 uses
+      //    the (installation_id, timestamp DESC) index. ::float turns the
+      //    NUMERIC columns into JSON numbers rather than strings.
+      const { rows } = await pool.query(
+        `SELECT
+           installation_id,
+           timestamp,
+           power_kw::float   AS power_kw,
+           energy_kwh::float AS energy_kwh,
+           voltage::float    AS voltage
+         FROM readings
+         WHERE installation_id = $1
+         ORDER BY timestamp DESC
+         LIMIT 1`,
+        [req.params.id]
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'No readings for this installation' });
+      }
+
+      // site_name comes from the installation, not the reading row.
+      res.json({ ...rows[0], site_name: site.site_name });
+    } catch (err) {
+      next(err);
     }
-
-    // 2. Latest reading for this site. ORDER BY timestamp DESC LIMIT 1 uses the
-    //    (installation_id, timestamp DESC) index. ::float turns the NUMERIC
-    //    columns into JSON numbers rather than strings.
-    const { rows } = await pool.query(
-      `SELECT
-         installation_id,
-         timestamp,
-         power_kw::float   AS power_kw,
-         energy_kwh::float AS energy_kwh,
-         voltage::float    AS voltage
-       FROM readings
-       WHERE installation_id = $1
-       ORDER BY timestamp DESC
-       LIMIT 1`,
-      [req.params.id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'No readings for this installation' });
-    }
-
-    // site_name comes from the installation, not the reading row.
-    res.json({ ...rows[0], site_name: installation.rows[0].site_name });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 // GET /installations/:id
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authenticate, requireScope('analyst-read'), async (req, res, next) => {
   try {
+    const { role, jurisdiction_id: jurisdictionId } = req.user;
+
+    if (role === 'device') {
+      return res.status(403).json({
+        error: 'Device tokens cannot perform analyst reads',
+        code: 'FORBIDDEN_ROLE',
+      });
+    }
+
     const { rows } = await pool.query(
       `SELECT
          i.id,
@@ -151,7 +223,22 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Installation not found' });
     }
 
-    res.json({ data: rows[0] });
+    const installation = rows[0];
+
+    const allowed =
+      role === 'national' ||
+      (role === 'provincial' &&
+        String(installation.province_id) === String(jurisdictionId)) ||
+      (role === 'district' && String(installation.district_id) === String(jurisdictionId));
+
+    if (!allowed) {
+      return res.status(403).json({
+        error: 'Outside your jurisdiction',
+        code: 'OUTSIDE_JURISDICTION',
+      });
+    }
+
+    res.json({ data: installation });
   } catch (err) {
     next(err);
   }
