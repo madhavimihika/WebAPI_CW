@@ -23,8 +23,11 @@
  * visible here as `req.params.id`.
  *
  * Query params:
- *   ?page=1   which page to return         (default 1, min 1)
- *   ?limit=50 how many rows per page       (default 50, max 200)
+ *   ?page=1                 page to return (default 1)
+ *   ?limit=50               rows per page (default 50, max 200)
+ *   ?from=...&to=...        inclusive timestamp range
+ *   ?min_power=...          minimum power_kw
+ *   ?sort=timestamp:desc    timestamp:asc is also supported
  *
  * The columns power_kw / energy_kwh / voltage are NUMERIC in Postgres, which
  * `pg` returns as strings (NUMERIC has arbitrary precision, so it can't map to
@@ -49,21 +52,35 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
 /**
- * Parses a positive-integer query param, falling back to `fallback` when the
- * value is missing, not a number, or < 1. Keeps `limit` inside MAX_LIMIT.
+ * Parses a positive-integer query param. Missing values use the fallback;
+ * provided values must contain only digits and be greater than zero.
  */
-function parsePositiveInt(value, fallback, max) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
-  return max !== undefined ? Math.min(parsed, max) : parsed;
+function parsePositiveInt(value, fallback) {
+  if (value === undefined) return { value: fallback, valid: true };
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) return { valid: false };
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return { valid: false };
+  return { value: parsed, valid: true };
 }
 
 /**
  * Builds a next/previous link for the current page, preserving the effective
  * page/limit. Returns null when there is no such page.
  */
-function buildPageLink(installationId, page, limit, basePath) {
-  return `${basePath}?page=${page}&limit=${limit}`;
+function buildPageLink(page, query, basePath) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) params.set(key, String(value));
+  }
+  params.set('page', String(page));
+  return `${basePath}?${params.toString()}`;
+}
+
+function parseOptionalDate(value) {
+  if (value === undefined) return { valid: true };
+  if (typeof value !== 'string' || value.trim() === '') return { valid: false };
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? { valid: false } : { valid: true, value: date };
 }
 
 /**
@@ -184,21 +201,67 @@ router.get(
       });
     }
 
-    // 3. Normalise pagination: page >= 1, 1 <= limit <= 200.
-    const page = parsePositiveInt(req.query.page, DEFAULT_PAGE);
-    const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
+    // 3. Validate query parameters after confirming the resource and caller's
+    //    jurisdiction, so the existing 404 and 403 behavior stays intact.
+    const sort = req.query.sort;
+    if (sort !== 'timestamp:asc' && sort !== 'timestamp:desc') {
+      return res.status(400).json({ error: 'Invalid sort field', code: 'INVALID_SORT' });
+    }
+
+    const from = parseOptionalDate(req.query.from);
+    const to = parseOptionalDate(req.query.to);
+    if (!from.valid || !to.valid) {
+      return res.status(400).json({ error: 'Invalid date', code: 'INVALID_DATE' });
+    }
+
+    let minPower;
+    if (req.query.min_power !== undefined) {
+      const rawMinPower = req.query.min_power;
+      if (typeof rawMinPower !== 'string' || rawMinPower.trim() === '') {
+        return res.status(400).json({ error: 'Invalid min_power', code: 'INVALID_MIN_POWER' });
+      }
+      minPower = Number(rawMinPower);
+      if (!Number.isFinite(minPower)) {
+        return res.status(400).json({ error: 'Invalid min_power', code: 'INVALID_MIN_POWER' });
+      }
+    }
+
+    const parsedPage = parsePositiveInt(req.query.page, DEFAULT_PAGE);
+    const parsedLimit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT);
+    if (!parsedPage.valid || !parsedLimit.valid) {
+      return res.status(400).json({ error: 'Invalid page or limit', code: 'INVALID_PAGINATION' });
+    }
+    const page = parsedPage.value;
+    const limit = Math.min(parsedLimit.value, MAX_LIMIT);
     const offset = (page - 1) * limit;
+
+    const filters = ['installation_id = $1'];
+    const filterValues = [installationId];
+    if (from.value) {
+      filterValues.push(from.value);
+      filters.push(`timestamp >= $${filterValues.length}`);
+    }
+    if (to.value) {
+      filterValues.push(to.value);
+      filters.push(`timestamp <= $${filterValues.length}`);
+    }
+    if (minPower !== undefined) {
+      filterValues.push(minPower);
+      filters.push(`power_kw >= $${filterValues.length}`);
+    }
+    const whereClause = filters.join(' AND ');
 
     // 4. Total row count drives `pages` and the next/previous links.
     const countResult = await pool.query(
-      'SELECT count(*)::int AS total FROM readings WHERE installation_id = $1',
-      [installationId]
+      `SELECT count(*)::int AS total FROM readings WHERE ${whereClause}`,
+      filterValues
     );
     const total = countResult.rows[0].total;
     const pages = Math.max(1, Math.ceil(total / limit));
 
-    // 5. The page of rows. `::float` turns the NUMERIC columns into JSON numbers;
-    //    `timestamp DESC` uses the (installation_id, timestamp DESC) index.
+    // 5. The page of rows. Values remain parameterized; the direction is chosen
+    //    only from the two values validated above.
+    const dataValues = [...filterValues, limit, offset];
     const readingsResult = await pool.query(
       `SELECT
          id,
@@ -208,18 +271,18 @@ router.get(
          energy_kwh::float AS energy_kwh,
          voltage::float    AS voltage
        FROM readings
-       WHERE installation_id = $1
-       ORDER BY timestamp DESC
-       LIMIT $2 OFFSET $3`,
-      [installationId, limit, offset]
+       WHERE ${whereClause}
+       ORDER BY timestamp ${sort.endsWith(':asc') ? 'ASC' : 'DESC'}
+       LIMIT $${filterValues.length + 1} OFFSET $${filterValues.length + 2}`,
+      dataValues
     );
 
     // 6. Links are relative to the request; req.baseUrl is
     //    '/installations/:id/readings' with the real id substituted.
     const basePath = req.baseUrl;
-    const nextLink =
-      page < pages ? buildPageLink(installationId, page + 1, limit, basePath) : null;
-    const previous = page > 1 ? buildPageLink(installationId, page - 1, limit, basePath) : null;
+    const linkQuery = { ...req.query, limit };
+    const nextLink = page < pages ? buildPageLink(page + 1, linkQuery, basePath) : null;
+    const previous = page > 1 ? buildPageLink(page - 1, linkQuery, basePath) : null;
 
     res.json({
       data: readingsResult.rows,
