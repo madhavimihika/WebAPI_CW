@@ -5,7 +5,8 @@
  *
  *   GET /installations        -> { data: [...], total: N } (ordered by site_name)
  *   GET /installations/:id    -> one installation (plus substation/district/
- *                               province names), or 404 { error: "Installation not found" }
+ *                               province names and latest reading), or 404
+ *                               { error: "Installation not found" }
  *   GET /installations/:id/last-known-reading
  *                             -> the single most recent reading for the site
  *                               (a derived/operational "what is it generating
@@ -41,6 +42,25 @@ const pool = require('../db');
 const { authenticate, requireScope } = require('../middleware/auth');
 
 const router = express.Router();
+
+async function getLastReading(installationId) {
+  const { rows } = await pool.query(
+    `SELECT
+       id,
+       installation_id,
+       timestamp,
+       power_kw::float   AS power_kw,
+       energy_kwh::float AS energy_kwh,
+       voltage::float    AS voltage
+     FROM readings
+     WHERE installation_id = $1
+     ORDER BY timestamp DESC
+     LIMIT 1`,
+    [installationId]
+  );
+
+  return rows[0] || null;
+}
 
 // GET /installations
 router.get('/', authenticate, requireScope('analyst-read'), async (req, res, next) => {
@@ -159,29 +179,17 @@ router.get(
         });
       }
 
-      // 2. Latest reading for this site. ORDER BY timestamp DESC LIMIT 1 uses
-      //    the (installation_id, timestamp DESC) index. ::float turns the
-      //    NUMERIC columns into JSON numbers rather than strings.
-      const { rows } = await pool.query(
-        `SELECT
-           installation_id,
-           timestamp,
-           power_kw::float   AS power_kw,
-           energy_kwh::float AS energy_kwh,
-           voltage::float    AS voltage
-         FROM readings
-         WHERE installation_id = $1
-         ORDER BY timestamp DESC
-         LIMIT 1`,
-        [req.params.id]
-      );
+      // 2. Return only the derived reading fields for this processing function.
+      const reading = await getLastReading(req.params.id);
 
-      if (rows.length === 0) {
-        return res.status(404).json({ error: 'No readings for this installation' });
+      if (!reading) {
+        return res.status(404).json({
+          error: 'No readings for this installation',
+          code: 'NOT_FOUND',
+        });
       }
 
-      // site_name comes from the installation, not the reading row.
-      res.json({ ...rows[0], site_name: site.site_name });
+      res.json(reading);
     } catch (err) {
       next(err);
     }
@@ -238,7 +246,9 @@ router.get('/:id', authenticate, requireScope('analyst-read'), async (req, res, 
       });
     }
 
-    res.json({ data: installation });
+    const lastKnownReading = await getLastReading(req.params.id);
+
+    res.json({ data: { ...installation, last_known_reading: lastKnownReading } });
   } catch (err) {
     next(err);
   }
