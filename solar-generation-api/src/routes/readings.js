@@ -409,6 +409,9 @@ router.post(
       [id, installationId, timestamp, power_kw, energy_kwh, voltage]
     );
 
+    res.set('ETag', `"${id}"`);
+    res.set('Last-Modified', new Date(inserted.rows[0].timestamp).toUTCString());
+
     // 6. Location points at the new resource under the same mount path.
     res
       .status(201)
