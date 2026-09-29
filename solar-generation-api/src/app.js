@@ -2,6 +2,7 @@ const path = require("path");
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const YAML = require("yamljs");
+const authRouter = require("./routes/auth");
 const provincesRouter = require("./routes/provinces");
 const districtsRouter = require("./routes/districts");
 const substationsRouter = require("./routes/substations");
@@ -41,6 +42,7 @@ app.get("/", (req, res) => {
 });
 
 // Feature routers
+app.use("/auth", authRouter);
 app.use("/provinces", provincesRouter);
 app.use("/districts", districtsRouter);
 app.use("/substations", substationsRouter);
