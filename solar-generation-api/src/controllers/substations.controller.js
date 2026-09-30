@@ -39,6 +39,7 @@ async function listInstallations(req, res, next) {
     if (!substation) return res.status(404).json({ error: 'Substation not found' });
     if (!allowedForUser(substation, role, jurisdictionId)) return res.status(403).json({ error: 'Outside your jurisdiction', code: 'OUTSIDE_JURISDICTION' });
     const rows = await service.findInstallations(req.params.id);
+    res.set('ETag', generateETag(rows));
     return res.json({ data: rows, total: rows.length });
   } catch (err) { return next(err); }
 }

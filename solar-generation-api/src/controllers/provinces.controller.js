@@ -34,6 +34,7 @@ async function listDistricts(req, res, next) {
       return res.status(403).json({ error: 'Outside your jurisdiction', code: 'OUTSIDE_JURISDICTION' });
     }
     const rows = await service.findDistrictsInProvince(provinceId);
+    res.set('ETag', generateETag(rows));
     return res.json({ data: rows, total: rows.length });
   } catch (err) { return next(err); }
 }
