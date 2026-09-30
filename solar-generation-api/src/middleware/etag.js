@@ -15,7 +15,15 @@ function setCacheHeaders(res, obj, lastModifiedDate) {
 }
 
 function checkConditional(req, res, currentETag) {
-  if (req.headers['if-none-match'] === currentETag) {
+  const clientETag = req.headers['if-none-match'];
+  if (!clientETag) return false;
+
+  const normalize = (tag) => String(tag).trim().replace(/^W\//, '');
+  const current = normalize(currentETag);
+  const matches = clientETag === '*'
+    || String(clientETag).split(',').some((tag) => normalize(tag) === current);
+
+  if (matches) {
     res.status(304).end();
     return true;
   }

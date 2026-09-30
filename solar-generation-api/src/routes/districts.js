@@ -103,9 +103,12 @@ router.get(
       }
 
       const responseBody = { data: rows[0] };
+      const etag = generateETag(responseBody);
       setCacheHeaders(res, responseBody, new Date());
-      if (checkConditional(req, res, generateETag(responseBody))) return;
-      res.json(responseBody);
+      if (checkConditional(req, res, etag)) {
+        return;
+      }
+      return res.json(responseBody);
     } catch (err) {
       next(err);
     }
@@ -137,6 +140,7 @@ router.get(
         [req.params.id]
       );
 
+      res.set('ETag', generateETag(rows));
       res.json({ data: rows, total: rows.length });
     } catch (err) {
       next(err);
