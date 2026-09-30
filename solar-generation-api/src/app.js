@@ -52,6 +52,7 @@ app.use("/installations", installationsRouter);
 app.use("/installations/:id/readings", readingsRouter);
 
 // Central error handler
+// Return JSON errors, including JSON parser errors, through one handler.
 app.use(errorHandler);
 
 module.exports = app;
