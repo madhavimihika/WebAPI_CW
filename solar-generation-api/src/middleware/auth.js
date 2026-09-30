@@ -116,4 +116,26 @@ function requireScope(scope) {
   };
 }
 
-module.exports = { authenticate, requireScope };
+/** Factory: allow only a token with the requested role through. */
+function requireRole(role) {
+  return function requireRoleMiddleware(req, res, next) {
+    if (!req.user) {
+      return res.status(500).json({
+        error: 'Middleware misuse: authenticate must run first',
+        code: 'SERVER_ERROR',
+      });
+    }
+
+    if (req.user.role !== role) {
+      return res.status(403).json({
+        error: 'Insufficient role',
+        code: 'FORBIDDEN_ROLE',
+        required: role,
+      });
+    }
+
+    return next();
+  };
+}
+
+module.exports = { authenticate, requireScope, requireRole };

@@ -8,6 +8,7 @@ const districtsRouter = require("./routes/districts");
 const substationsRouter = require("./routes/substations");
 const installationsRouter = require("./routes/installations");
 const readingsRouter = require("./routes/readings");
+const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 app.set('etag', false);
@@ -50,10 +51,7 @@ app.use("/substations", substationsRouter);
 app.use("/installations", installationsRouter);
 app.use("/installations/:id/readings", readingsRouter);
 
-// Central error handler
-app.use((err, req, res, next) => {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-});
+// Return JSON errors, including JSON parser errors, through one handler.
+app.use(errorHandler);
 
 module.exports = app;
