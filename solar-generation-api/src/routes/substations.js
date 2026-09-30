@@ -1,41 +1,6 @@
-/**
- * routes/substations.js
- * ---------------------------------------------------------------------------
- * Substation endpoints.
- *
- *   GET /substations                 -> { data: [...], total: N }  (ordered by name)
- *   GET /substations/:id             -> one substation, or 404 { error: "Substation not found" }
- *   GET /substations/:id/installations -> installations at that substation
- *                                        404 if the substation does not exist,
- *                                        { data: [], total: 0 } if it has none
- *
- * AUTHORIZATION
- *   Every GET on this router requires a bearer token carrying the
- *   'analyst-read' scope (authenticate + requireScope).
- *
- *   Jurisdiction is enforced inside the handlers rather than with the shared
- *   requireJurisdiction middleware, because that middleware reads a DISTRICT
- *   id off req.params.id / req.query.district_id - and here :id is a SUBSTATION
- *   id. Passing a substation id to it would look up districts.id = <substation
- *   id>, which is a different (and wrong) question.
- *
- *   Instead every handler walks one step UP the hierarchy: substations ->
- *   districts. That single join is what turns a substation into the district
- *   the middleware would have needed.
- *
- * All queries are parameterized ($1). Errors are passed to next(err) and
- * handled by the central error handler in app.js.
- *
- * Collections currently return every row in scope. When the dataset grows, add
- * ?limit=&offset= here (e.g. `LIMIT $n OFFSET $n+1` with defaults) and make
- * `total` a separate `SELECT count(*)` over the same WHERE clause so it keeps
- * reporting the full size rather than the page size.
- */
-
 const express = require('express');
-const pool = require('../db');
 const { authenticate, requireScope } = require('../middleware/auth');
-const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
+const controller = require('../controllers/substations.controller');
 
 const router = express.Router();
 

@@ -1,46 +1,6 @@
-/**
- * routes/installations.js
- * ---------------------------------------------------------------------------
- * Installation endpoints.
- *
- *   GET /installations        -> { data: [...], total: N } (ordered by site_name)
- *   GET /installations/:id    -> one installation (plus substation/district/
- *                               province names and latest reading), or 404
- *                               { error: "Installation not found" }
- *   GET /installations/:id/last-known-reading
- *                             -> the single most recent reading for the site
- *                               (a derived/operational "what is it generating
- *                               right now?" view), or 404 with either
- *                               "Installation not found" (no such site) or
- *                               "No readings for this installation".
- *
- * AUTHORIZATION
- *   Every GET on this router requires a bearer token carrying the
- *   'analyst-read' scope (authenticate + requireScope).
- *
- *   Jurisdiction is enforced inside the handlers rather than with the shared
- *   requireJurisdiction middleware, because that middleware authorizes against
- *   a DISTRICT id read off req.params.id - and here :id is an INSTALLATION id.
- *   The installation -> substation -> district walk is two joins the middleware
- *   does not perform.
- *
- *   The ?district_id / ?province_id filters below are NOT an authorization
- *   mechanism: they narrow a result set, they do not widen it. Jurisdiction is
- *   applied independently of whatever the client asks for.
- *
- * Parameterized queries only ($1, $2, ...). Errors are passed to next(err) and
- * handled by the central error handler in app.js.
- *
- * Pagination is deliberately not implemented yet - add ?limit=&offset= here
- * (append `LIMIT $n OFFSET $n+1` to the built SQL) and make `total` a separate
- * `SELECT count(*)` over the same WHERE clause so it reports the full size
- * rather than the page size.
- */
-
 const express = require('express');
-const pool = require('../db');
-const { authenticate, requireScope } = require('../middleware/auth');
-const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
+const { authenticate, requireScope, requireRole } = require('../middleware/auth');
+const controller = require('../controllers/installations.controller');
 
 const router = express.Router();
 

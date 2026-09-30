@@ -1,48 +1,6 @@
-/**
- * routes/provinces.js
- * ---------------------------------------------------------------------------
- * Province endpoints.
- *
- *   GET /provinces             -> { data: [...], total: N }  (all provinces, ordered by name)
- *   GET /provinces/:id         -> one province, or 404 { error: "Province not found" }
- *   GET /provinces/:id/districts -> districts in that province
- *                                   404 if the province does not exist,
- *                                   { data: [], total: 0 } if it has none
- *
- * AUTHORIZATION
- *   Every GET on this router requires a bearer token carrying the
- *   'analyst-read' scope:
- *
- *     authenticate -> 401 { code: "NO_TOKEN" | "INVALID_AUTH_HEADER" | "INVALID_TOKEN" }
- *     requireScope('analyst-read') -> 403 { code: "FORBIDDEN_SCOPE" }
- *
- *   Jurisdiction is enforced inside the handlers rather than with the shared
- *   requireJurisdiction middleware, because that middleware authorizes against
- *   a DISTRICT id (req.params.id) and everything here is addressed by PROVINCE
- *   id. There is no province -> district mapping for it to do.
- *
- *   GET /provinces  and  GET /provinces/:id  are the two ways a client learns
- *   the id space, so they stay open to any analyst-read holder - including a
- *   district user, who needs the province of their own district to make sense
- *   of the data. The confinement happens one level down, on the district list.
- *
- *   GET /provinces/:id/districts is the first endpoint that returns records a
- *   caller might not be entitled to, so it is the first that is jurisdiction
- *   checked (see the handler for the exact rule).
- *
- * All SQL lives in the model layer (../models/provinces); this file only calls
- * it and turns the results into responses. Errors are passed to next(err) and
- * handled by the central error handler in app.js.
- */
-
 const express = require('express');
-const {
-  findAll,
-  findById,
-  findDistrictsInProvince,
-} = require('../models/provinces');
 const { authenticate, requireScope } = require('../middleware/auth');
-const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
+const controller = require('../controllers/provinces.controller');
 
 const router = express.Router();
 

@@ -1,44 +1,7 @@
-/**
- * routes/districts.js
- * ---------------------------------------------------------------------------
- * District endpoints.
- *
- *   GET /districts                 -> { data: [...], total: N }  (ordered by name)
- *   GET /districts/:id             -> one district, or 404 { error: "District not found" }
- *   GET /districts/:id/substations -> substations in that district
- *                                     404 if the district does not exist,
- *                                     { data: [], total: 0 } if it has none
- *
- * AUTHORIZATION
- *   Every GET on this router requires a bearer token carrying the
- *   'analyst-read' scope (authenticate + requireScope).
- *
- *   GET /districts/:id and GET /districts/:id/substations additionally mount
- *   the shared requireJurisdiction middleware, which reads the district id off
- *   req.params.id and 403s when it is outside the caller's jurisdiction.
- *   GET /districts/:id/substations is the clearest case for it: the child rows
- *   are all inside district :id, so authorizing the parent authorizes the
- *   whole response.
- *
- *   GET /districts is a collection, so there is no single id to authorize
- *   against - the middleware cannot help. The handler narrows the query itself
- *   by role (national: all, provincial: their province, district: their own
- *   district, device: 403 FORBIDDEN_ROLE).
- *
- * All queries are parameterized ($1). Errors are passed to next(err) and
- * handled by the central error handler in app.js.
- *
- * Collections currently return every row in scope. When the dataset grows, add
- * ?limit=&offset= here (e.g. `LIMIT $n OFFSET $n+1` with defaults) and make
- * `total` a separate `SELECT count(*)` over the same WHERE clause so it keeps
- * reporting the full size rather than the page size.
- */
-
 const express = require('express');
-const pool = require('../db');
 const { authenticate, requireScope } = require('../middleware/auth');
 const { requireJurisdiction } = require('../middleware/authorize');
-const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
+const controller = require('../controllers/districts.controller');
 
 const router = express.Router();
 
