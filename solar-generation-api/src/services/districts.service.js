@@ -33,4 +33,9 @@ async function districtExists(id) {
   return rows.length > 0;
 }
 
-module.exports = { findAllForRole, findById, findSubstations, districtExists };
+async function findAuthorizationDetails(id) {
+  const { rows } = await pool.query('SELECT id, province_id FROM districts WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
+module.exports = { findAllForRole, findById, findSubstations, districtExists, findAuthorizationDetails };

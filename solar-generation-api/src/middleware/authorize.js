@@ -18,7 +18,7 @@
  *   router.get('/:id', authenticate, requireJurisdiction, handler)
  */
 
-const pool = require('../db');
+const districtsService = require('../services/districts.service');
 
 /**
  * Pick the district id out of the request.
@@ -87,19 +87,14 @@ async function requireJurisdiction(req, res, next) {
     }
 
     // Parameterized - districtId is never interpolated into the SQL text.
-    const { rows } = await pool.query(
-      'SELECT id, province_id FROM districts WHERE id = $1',
-      [districtId]
-    );
+    const district = await districtsService.findAuthorizationDetails(districtId);
 
-    if (rows.length === 0) {
+    if (!district) {
       return res.status(404).json({
         error: 'District not found',
         code: 'NOT_FOUND',
       });
     }
-
-    const district = rows[0];
 
     const allowed =
       role === 'provincial'
