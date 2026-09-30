@@ -67,9 +67,12 @@ router.get('/:id', authenticate, requireScope('analyst-read'), async (req, res, 
     }
 
     const responseBody = { data: province };
+    const etag = generateETag(responseBody);
     setCacheHeaders(res, responseBody, new Date());
-    if (checkConditional(req, res, generateETag(responseBody))) return;
-    res.json(responseBody);
+    if (checkConditional(req, res, etag)) {
+      return;
+    }
+    return res.json(responseBody);
   } catch (err) {
     next(err);
   }
@@ -134,6 +137,7 @@ router.get(
 
       const rows = await findDistrictsInProvince(provinceId);
 
+      res.set('ETag', generateETag(rows));
       res.json({ data: rows, total: rows.length });
     } catch (err) {
       next(err);
