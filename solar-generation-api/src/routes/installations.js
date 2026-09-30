@@ -191,9 +191,12 @@ router.get(
         });
       }
 
+      const etag = generateETag(reading);
       setCacheHeaders(res, reading, reading.timestamp);
-      if (checkConditional(req, res, generateETag(reading))) return;
-      res.json(reading);
+      if (checkConditional(req, res, etag)) {
+        return;
+      }
+      return res.json(reading);
     } catch (err) {
       next(err);
     }
@@ -253,9 +256,12 @@ router.get('/:id', authenticate, requireScope('analyst-read'), async (req, res, 
     const lastKnownReading = await getLastReading(req.params.id);
     const responseBody = { data: { ...installation, last_known_reading: lastKnownReading } };
     const lastModifiedDate = installation.created_at || new Date();
+    const etag = generateETag(responseBody);
     setCacheHeaders(res, responseBody, lastModifiedDate);
-    if (checkConditional(req, res, generateETag(responseBody))) return;
-    res.json(responseBody);
+    if (checkConditional(req, res, etag)) {
+      return;
+    }
+    return res.json(responseBody);
   } catch (err) {
     next(err);
   }
