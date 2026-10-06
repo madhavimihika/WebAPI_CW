@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticate, requireScope, requireRole } = require('../middleware/auth');
-const controller = require('../controllers/installations.controller');
+const pool = require('../db');
+const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
 
 const router = express.Router();
 

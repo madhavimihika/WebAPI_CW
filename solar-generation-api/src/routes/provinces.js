@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticate, requireScope } = require('../middleware/auth');
-const controller = require('../controllers/provinces.controller');
+const { findAll, findById, findDistrictsInProvince } = require('../services/provinces.service');
+const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
 
 const router = express.Router();
 
