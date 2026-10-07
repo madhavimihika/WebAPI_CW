@@ -46,7 +46,7 @@ async function check(label, expectedStatus, path, options = {}, validate = () =>
     const valid = result.status === expectedStatus && validate(result.data);
     report(label, valid, valid
       ? `${result.status}${detail ? `; ${detail}` : ''}`
-      : `expected ${expectedStatus}${detail ? ` and ${detail}` : ''}, got ${result.status}`);
+      : `expected ${expectedStatus}${detail ? ` and ${detail}` : ''}, got ${result.status}; response=${JSON.stringify(result.data)}`);
     return result;
   } catch (error) {
     report(label, false, error.message);
