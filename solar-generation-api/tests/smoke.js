@@ -89,6 +89,7 @@ async function main() {
   const { tokens, results: loginResults } = await loginAll();
   const nationalUser = loginResults.national.data && loginResults.national.data.user;
   const districtUser = loginResults.district.data && loginResults.district.data.user;
+  const deviceUser = loginResults.device.data && loginResults.device.data.user;
 
   // Discover endpoint IDs from the live API rather than assuming numeric IDs.
   const [provinces, districts, installations] = await Promise.all([
@@ -100,8 +101,8 @@ async function main() {
   const firstDistrictId = districts[0] && districts[0].id;
   const firstInstallationId = installations[0] && installations[0].id;
   const ownDistrictId = districtUser && districtUser.jurisdiction_id;
-  const ownDistrict = districts.find((district) => district.id === ownDistrictId);
-  const otherDistrict = districts.find((district) => district.id !== ownDistrictId);
+  const ownDistrict = districts.find((district) => String(district.id) === String(ownDistrictId));
+  const otherDistrict = districts.find((district) => String(district.id) !== String(ownDistrictId));
   const ownIdForPath = (ownDistrict && ownDistrict.id) || 'missing-district';
   const otherIdForPath = (otherDistrict && otherDistrict.id) || 'missing-district';
   const firstProvincePathId = firstProvinceId || 'missing-province';
@@ -155,7 +156,8 @@ async function main() {
   await check('19. POST reading with district token', 403,
     `/installations/${firstInstallationPathId}/readings`, { method: 'POST', token: tokens.district, body: reading },
     () => Boolean(firstInstallationId));
-  const deviceReadingPath = '/installations/i-0001/readings';
+  const deviceInstallationId = deviceUser && deviceUser.installation_id;
+  const deviceReadingPath = `/installations/${deviceInstallationId || 'missing-installation'}/readings`;
   await check('20. POST fresh reading with device token', 201, deviceReadingPath,
     { method: 'POST', token: tokens.device, body: reading });
   await check('21. POST duplicate timestamp with device token', 409, deviceReadingPath,
