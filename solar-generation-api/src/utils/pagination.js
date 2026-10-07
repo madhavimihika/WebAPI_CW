@@ -4,8 +4,11 @@ const MAX_LIMIT = 200;
 
 function parsePositiveInt(value, fallback) {
   if (value === undefined) return { value: fallback, valid: true };
-  if (typeof value !== 'string' || !/^\d+$/.test(value)) return { valid: false };
-  const parsed = Number(value);
+  // Express query parsers normally return strings, but custom parsers and
+  // direct callers may already have converted the value to a number.
+  if (typeof value !== 'string' && typeof value !== 'number') return { valid: false };
+  if (typeof value === 'string' && !/^\d+$/.test(value)) return { valid: false };
+  const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 1) return { valid: false };
   return { value: parsed, valid: true };
 }
