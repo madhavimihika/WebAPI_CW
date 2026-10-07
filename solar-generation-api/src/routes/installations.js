@@ -2,8 +2,16 @@ const express = require('express');
 const { authenticate, requireScope, requireRole } = require('../middleware/auth');
 const pool = require('../db');
 const { generateETag, setCacheHeaders, checkConditional } = require('../middleware/etag');
+const controller = require('../controllers/installations.controller');
 
 const router = express.Router();
+
+// National analysts manage installation records. Keep these routes explicit:
+// the read scope used by national users is different from the device write
+// scope used to submit readings.
+router.post('/', authenticate, requireRole('national'), controller.create);
+router.put('/:id', authenticate, requireRole('national'), controller.replace);
+router.delete('/:id', authenticate, requireRole('national'), controller.remove);
 
 async function getLastReading(installationId) {
   const { rows } = await pool.query(

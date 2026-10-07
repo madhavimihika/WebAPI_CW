@@ -26,6 +26,7 @@ async function listSubstations(req, res, next) {
   try {
     if (!(await service.districtExists(req.params.id))) return res.status(404).json({ error: 'District not found' });
     const rows = await service.findSubstations(req.params.id);
+    res.set('ETag', generateETag(rows));
     return res.json({ data: rows, total: rows.length });
   } catch (err) { return next(err); }
 }
