@@ -1,0 +1,1027 @@
+{
+  "info": {
+    "_postman_id": "10f20da6-45c7-4fe1-ade7-e3083dcb9a7c",
+    "name": "SLSEA Solar API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "36425172",
+    "_collection_link": "https://go.postman.co/collection/36425172-10f20da6-45c7-4fe1-ade7-e3083dcb9a7c?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Base URL",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "Login (national)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"national-user\", \"password\": \"national-pass-1\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/auth/login",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Login (District)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"national-user\", \"password\": \"national-pass-1\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/auth/login",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Login(Device)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"device-1\", \"password\": \"device-pass-1\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/auth/login",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "List provinces",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"device-1\", \"password\": \"device-pass-1\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/provinces",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "provinces"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get one province",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"national-user\", \"password\": \"national-pass-1\" }"
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/provinces/p-01",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "provinces",
+            "p-01"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Districts of a province (scoped)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/provinces/p-01/districts",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "provinces",
+            "p-01",
+            "districts"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "List districts",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/districts",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "districts"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Substations of a district (scoped)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/districts/d-01/substations",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "districts",
+            "d-01",
+            "substations"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Installations of a substation (scoped)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/substations/s-01/installations",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "substations",
+            "s-01",
+            "installations"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "List all installations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Installation composite",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Last-known-reading",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ]
+      },
+      "response": []
+    },
+    {
+      "name": "Readings (paginated, default)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Readings (page 2, limit 10)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/?page=2&limit=10",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            ""
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "2"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Readings (sorted ascending)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings?sort=timestamp:asc",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ],
+          "query": [
+            {
+              "key": "sort",
+              "value": "timestamp:asc"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Readings (invalid sort → 400)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings?sort=bogus",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ],
+          "query": [
+            {
+              "key": "sort",
+              "value": "bogus"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Readings (time window)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings?from=2026-01-01T00:00:00Z&to=2026-01-01T06:00:00Z",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "2026-01-01T00:00:00Z"
+            },
+            {
+              "key": "to",
+              "value": "2026-01-01T06:00:00Z"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Readings (min power filter)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings?min_power=3",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ],
+          "query": [
+            {
+              "key": "min_power",
+              "value": "3"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST reading without token (401)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"timestamp\": \"2026-01-15T10:00:00Z\", \"power_kw\": 3.5, \"energy_kwh\": 12, \"voltage\": 230 }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST reading with district token (403)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwMiIsInVzZXJuYW1lIjoiZGlzdHJpY3QtY29sb21ibyIsInJvbGUiOiJkaXN0cmljdCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjoiZGlzdHJpY3QiLCJqdXJpc2RpY3Rpb25faWQiOiJkLTAxIiwiaW5zdGFsbGF0aW9uX2lkIjpudWxsLCJpYXQiOjE3OTE2Mzk5MTMsImV4cCI6MTc5MTY0MzUxM30.WmC6qzxo9bDUtEV5RzjCIGCvxVWWxOo9wZK4YpE21IU",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST reading with device token (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwMSIsInVzZXJuYW1lIjoiZGV2aWNlLTEiLCJyb2xlIjoiZGV2aWNlIiwic2NvcGUiOiJpbnN0YWxsYXRpb24td3JpdGUiLCJqdXJpc2RpY3Rpb25fbGV2ZWwiOm51bGwsImp1cmlzZGljdGlvbl9pZCI6bnVsbCwiaW5zdGFsbGF0aW9uX2lkIjoiaS0wMDAxIiwiaWF0IjoxNzkxNjM4NzU1LCJleHAiOjE3OTE2NDIzNTV9.lbOp87ru7fSU-22d-81peeVjDlbU6kw3KdfALk0koJE",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"timestamp\": \"2026-02-01T10:00:00Z\", \"power_kw\": 4.2, \"energy_kwh\": 15.8, \"voltage\": 231.5 }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST duplicate (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwMSIsInVzZXJuYW1lIjoiZGV2aWNlLTEiLCJyb2xlIjoiZGV2aWNlIiwic2NvcGUiOiJpbnN0YWxsYXRpb24td3JpdGUiLCJqdXJpc2RpY3Rpb25fbGV2ZWwiOm51bGwsImp1cmlzZGljdGlvbl9pZCI6bnVsbCwiaW5zdGFsbGF0aW9uX2lkIjoiaS0wMDAxIiwiaWF0IjoxNzkxNjM4NzU1LCJleHAiOjE3OTE2NDIzNTV9.lbOp87ru7fSU-22d-81peeVjDlbU6kw3KdfALk0koJE",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"timestamp\": \"2026-02-01T11:00:00Z\", \"power_kw\": 4.2, \"energy_kwh\": 15.8, \"voltage\": 231.5 }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001/readings",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001",
+            "readings"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST to another installation (403)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwMSIsInVzZXJuYW1lIjoiZGV2aWNlLTEiLCJyb2xlIjoiZGV2aWNlIiwic2NvcGUiOiJpbnN0YWxsYXRpb24td3JpdGUiLCJqdXJpc2RpY3Rpb25fbGV2ZWwiOm51bGwsImp1cmlzZGljdGlvbl9pZCI6bnVsbCwiaW5zdGFsbGF0aW9uX2lkIjoiaS0wMDAxIiwiaWF0IjoxNzkxNjM4NzU1LCJleHAiOjE3OTE2NDIzNTV9.lbOp87ru7fSU-22d-81peeVjDlbU6kw3KdfALk0koJE",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"timestamp\": \"2026-02-01T11:00:00Z\", \"power_kw\": 4.2, \"energy_kwh\": 15.8, \"voltage\": 231.5 }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0002/readings",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0002",
+            "readings"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Cross-jurisdiction read (403)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwMiIsInVzZXJuYW1lIjoiZGlzdHJpY3QtY29sb21ibyIsInJvbGUiOiJkaXN0cmljdCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjoiZGlzdHJpY3QiLCJqdXJpc2RpY3Rpb25faWQiOiJkLTAxIiwiaW5zdGFsbGF0aW9uX2lkIjpudWxsLCJpYXQiOjE3OTE2Mzk5MTMsImV4cCI6MTc5MTY0MzUxM30.WmC6qzxo9bDUtEV5RzjCIGCvxVWWxOo9wZK4YpE21IU",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/districts/d-17",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "districts",
+            "d-17"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Device token on read (403)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwMSIsInVzZXJuYW1lIjoiZGV2aWNlLTEiLCJyb2xlIjoiZGV2aWNlIiwic2NvcGUiOiJpbnN0YWxsYXRpb24td3JpdGUiLCJqdXJpc2RpY3Rpb25fbGV2ZWwiOm51bGwsImp1cmlzZGljdGlvbl9pZCI6bnVsbCwiaW5zdGFsbGF0aW9uX2lkIjoiaS0wMDAxIiwiaWF0IjoxNzkxNjM4NzU1LCJleHAiOjE3OTE2NDIzNTV9.lbOp87ru7fSU-22d-81peeVjDlbU6kw3KdfALk0koJE",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/provinces",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "provinces"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Invalid token (401)",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer invalid.bad.token",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"device-1\", \"password\": \"device-pass-1\" }"
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/provinces",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "provinces"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET with ETag capture",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"device-1\", \"password\": \"device-pass-1\" }"
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET with If-None-Match (304)(CHECK AGAIN)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const etag = pm.response.headers.get('ETag');\r",
+              "if (etag) pm.environment.set('installation_etag', etag);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST create installation (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"site_name\": \"Test Site\", \"meter_id\": \"MTR-TEST-001\", \"substation_id\": \"s-01\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT with stale If-Match (412)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LTAwNCIsInVzZXJuYW1lIjoibmF0aW9uYWwtdXNlciIsInJvbGUiOiJuYXRpb25hbCIsInNjb3BlIjoiYW5hbHlzdC1yZWFkIiwianVyaXNkaWN0aW9uX2xldmVsIjpudWxsLCJqdXJpc2RpY3Rpb25faWQiOm51bGwsImluc3RhbGxhdGlvbl9pZCI6bnVsbCwiaWF0IjoxNzkxNjM4NTcyLCJleHAiOjE3OTE2NDIxNzJ9.v8hM4oO3Qyg0jSvncVrSgP-gYwzTTPTfUHQmIIinvaw",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "Wrong Value",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"site_name\": \"Test\", \"meter_id\": \"MTR-TEST-001\", \"substation_id\": \"s-01\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/installations/i-0001",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "installations",
+            "i-0001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Swagger UI",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/docs",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "docs"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "openAPI Spec",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://webapi-cw.onrender.com/openapi.yaml",
+          "protocol": "https",
+          "host": [
+            "webapi-cw",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "openapi.yaml"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
